@@ -1,6 +1,18 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-app = FastAPI(title="doc_rag")
+from app import models  # noqa: F401  tabloların kaydı için
+from app.db import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="doc_rag", lifespan=lifespan)
 
 
 @app.get("/health")
