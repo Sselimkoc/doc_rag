@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { listDocuments, uploadDocument, type Document } from './api'
+import {
+  documentFileUrl,
+  listDocuments,
+  uploadDocument,
+  type Document,
+} from './api'
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -11,6 +16,7 @@ function App() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Document | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -57,7 +63,12 @@ function App() {
         <ul>
           {documents.map((doc) => (
             <li key={doc.id}>
-              <strong>{doc.filename}</strong>
+              <button
+                onClick={() => setSelected(doc)}
+                aria-pressed={selected?.id === doc.id}
+              >
+                <strong>{doc.filename}</strong>
+              </button>
               <div>
                 {doc.content_type} · {formatSize(doc.size)} ·{' '}
                 {new Date(doc.created_at).toLocaleString('tr-TR')}
@@ -65,6 +76,26 @@ function App() {
             </li>
           ))}
         </ul>
+      )}
+
+      {selected && (
+        <section>
+          <h2>{selected.filename}</h2>
+          {selected.content_type === 'application/pdf' ? (
+            <iframe
+              src={documentFileUrl(selected.id)}
+              title={selected.filename}
+              width="100%"
+              height="800"
+            />
+          ) : (
+            <img
+              src={documentFileUrl(selected.id)}
+              alt={selected.filename}
+              style={{ maxWidth: '100%' }}
+            />
+          )}
+        </section>
       )}
     </main>
   )

@@ -23,3 +23,7 @@ export async function uploadDocument(file: File): Promise<Document> {
   }
   return res.json()
 }
+
+export function documentFileUrl(id: number) {
+  return `/documents/${id}/file`
+}
