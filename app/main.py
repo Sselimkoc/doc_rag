@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import models  # noqa: F401  tabloların kaydı için
 from app.db import init_db
+from app.documents import router as documents_router
 
 
 @asynccontextmanager
@@ -13,6 +13,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="doc_rag", lifespan=lifespan)
+app.include_router(documents_router)
 
 
 @app.get("/health")
