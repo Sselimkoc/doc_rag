@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from app.db import DATA_DIR, get_session
+from app.extract import extract_pdf_text
 from app.models import Document
 
 UPLOAD_DIR = DATA_DIR / "uploads"
@@ -57,3 +58,14 @@ def get_document_file(document_id: int, session: Session = Depends(get_session))
         filename=document.filename,
         content_disposition_type="inline",
     )
+
+
+@router.get("/{document_id}/text")
+def get_document_text(document_id: int, session: Session = Depends(get_session)):
+    document = session.get(Document, document_id)
+    if document is None or not Path(document.path).exists():
+        raise HTTPException(404, "Belge bulunamadı.")
+    if document.content_type != "application/pdf":
+        raise HTTPException(415, "Şimdilik sadece PDF metni çıkarılabiliyor.")
+    pages = extract_pdf_text(document.path)
+    return [{"page": i + 1, "text": text} for i, text in enumerate(pages)]
