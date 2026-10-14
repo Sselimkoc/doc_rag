@@ -1,4 +1,5 @@
 import pypdfium2 as pdfium
+import pytesseract
 
 
 def extract_pdf_text(path: str) -> list[str]:
@@ -14,3 +15,8 @@ def extract_pdf_text(path: str) -> list[str]:
         return pages
     finally:
         pdf.close()
+
+
+def extract_image_text(path: str) -> str:
+    """Resimdeki metni Tesseract ile (Türkçe + İngilizce) okur."""
+    return pytesseract.image_to_string(path, lang="tur+eng")

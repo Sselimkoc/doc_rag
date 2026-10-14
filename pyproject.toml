@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.143.1",
     "pypdfium2==5.14.0",
+    "pytesseract==0.3.13",
     "python-multipart==0.0.32",
     "sqlmodel==0.0.48",
     "uvicorn==0.54.0",
