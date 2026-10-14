@@ -1,6 +1,8 @@
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from app.db import DATA_DIR, get_session
@@ -42,3 +44,16 @@ async def upload_document(file: UploadFile, session: Session = Depends(get_sessi
 @router.get("", response_model=list[Document])
 def list_documents(session: Session = Depends(get_session)):
     return session.exec(select(Document).order_by(Document.created_at.desc())).all()
+
+
+@router.get("/{document_id}/file")
+def get_document_file(document_id: int, session: Session = Depends(get_session)):
+    document = session.get(Document, document_id)
+    if document is None or not Path(document.path).exists():
+        raise HTTPException(404, "Belge bulunamadı.")
+    return FileResponse(
+        document.path,
+        media_type=document.content_type,
+        filename=document.filename,
+        content_disposition_type="inline",
+    )
