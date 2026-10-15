@@ -61,13 +61,14 @@ def split_units(lines: list[str], section: str | None) -> list[tuple[str, bool, 
     """Satırları cümlelere böler; (cümle, paragraf başı mı, bölüm) listesi döndürür.
 
     Boş satır ya da madde işaretiyle başlayan satır yeni paragraf başlatır;
-    tamamı büyük harfli satır başlıktır, ardışık başlık satırları tek başlık sayılır.
+    çıkarmada "# " ile işaretlenen satır başlıktır, ardışık başlık satırları tek başlık sayılır.
     """
     paragraphs, current = [], []  # (metin, başlık mı)
     for line in lines:
         line = line.strip()
-        # En az 5 harf: OCR'ın "KE" gibi kısa çöp okumaları başlık sayılmasın.
-        is_heading = line.isupper() and len(line) <= 100 and sum(c.isalpha() for c in line) >= 5
+        is_heading = line.startswith("# ")
+        if is_heading:
+            line = line[2:].strip()
         if not line or LIST_ITEM.match(line) or is_heading:
             if current:
                 paragraphs.append((" ".join(current), False))
