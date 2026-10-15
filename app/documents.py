@@ -1,12 +1,14 @@
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlmodel import Session, select
+from sqlalchemy import distinct, func
+from sqlmodel import Session, SQLModel, select
 
 from app.db import DATA_DIR, get_session
-from app.models import Document, Page
+from app.models import Chunk, Document, Page
 from app.processing import process_document
 
 UPLOAD_DIR = DATA_DIR / "uploads"
@@ -45,9 +47,36 @@ async def upload_document(
     return document
 
 
-@router.get("", response_model=list[Document])
+class DocumentSummary(SQLModel):
+    id: int
+    filename: str
+    content_type: str
+    size: int
+    status: str
+    created_at: datetime
+    page_count: int
+    ocr_page_count: int  # en az bir parçası OCR'dan gelen sayfalar
+
+
+@router.get("", response_model=list[DocumentSummary])
 def list_documents(session: Session = Depends(get_session)):
-    return session.exec(select(Document).order_by(Document.created_at.desc())).all()
+    documents = session.exec(select(Document).order_by(Document.created_at.desc())).all()
+    pages = dict(session.exec(select(Page.document_id, func.count()).group_by(Page.document_id)).all())
+    ocr_pages = dict(
+        session.exec(
+            select(Chunk.document_id, func.count(distinct(Chunk.page)))
+            .where(Chunk.source == "ocr")
+            .group_by(Chunk.document_id)
+        ).all()
+    )
+    return [
+        DocumentSummary(
+            **d.model_dump(exclude={"path"}),
+            page_count=pages.get(d.id, 0),
+            ocr_page_count=ocr_pages.get(d.id, 0),
+        )
+        for d in documents
+    ]
 
 
 @router.get("/{document_id}/file")

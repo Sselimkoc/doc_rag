@@ -7,13 +7,7 @@ import {
   type Document,
   type PageText,
 } from './api'
-
-const STATUS_LABELS: Record<string, string> = {
-  uploaded: 'Sırada',
-  processing: 'İşleniyor',
-  ready: 'Hazır',
-  failed: 'Metin çıkarılamadı',
-}
+import { initialLang, messages, saveLang, type Lang, type Messages } from './i18n'
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -25,17 +19,80 @@ function isPending(doc: Document) {
   return doc.status === 'uploaded' || doc.status === 'processing'
 }
 
+function ocrNote(doc: Document, t: Messages) {
+  if (doc.ocr_page_count === 0) return null
+  if (doc.ocr_page_count === doc.page_count) return t.ocrAll
+  return t.ocrSome(doc.ocr_page_count, doc.page_count)
+}
+
+function DocItem({
+  doc,
+  t,
+  checked,
+  selected,
+  onCheck,
+  onSelect,
+}: {
+  doc: Document
+  t: Messages
+  checked: boolean
+  selected: boolean
+  onCheck: () => void
+  onSelect: () => void
+}) {
+  const note = ocrNote(doc, t)
+  return (
+    <li className={selected ? 'doc selected' : 'doc'}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={doc.status !== 'ready'}
+        onChange={onCheck}
+        aria-label={t.includeInSearch(doc.filename)}
+      />
+      <button className="doc-name" onClick={onSelect} aria-pressed={selected}>
+        {doc.filename}
+      </button>
+      <div className="doc-meta">
+        {doc.status === 'ready' && <span className="num">{t.pages(doc.page_count)}</span>}
+        {doc.status === 'uploaded' && <span>{t.queued}</span>}
+        {doc.status === 'processing' && <span className="tag busy">{t.processing}</span>}
+        {note && <span className="tag ocr">OCR</span>}
+      </div>
+      {note && <div className="doc-note">{note}</div>}
+      {doc.status === 'failed' && <div className="doc-note failed">{t.failed}</div>}
+      {isPending(doc) && (
+        <div className="progress" aria-hidden="true">
+          <i />
+        </div>
+      )}
+    </li>
+  )
+}
+
 function App() {
+  const [lang, setLang] = useState<Lang>(initialLang)
   const [documents, setDocuments] = useState<Document[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Aramadan çıkarılan belgeler; yeni belgeler varsayılan olarak dahil.
+  const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [pages, setPages] = useState<PageText[] | null>(null)
   const [textError, setTextError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const t = messages[lang]
+  const errorText = (key: string) => t.errors[key] ?? key
   const selected = documents.find((d) => d.id === selectedId) ?? null
   const hasPending = documents.some(isPending)
+  const ready = documents.filter((d) => d.status === 'ready')
+  const searchable = ready.filter((d) => !excluded.has(d.id))
+
+  useEffect(() => {
+    document.documentElement.lang = lang
+    saveLang(lang)
+  }, [lang])
 
   useEffect(() => {
     listDocuments().then(setDocuments).catch((e) => setError(e.message))
@@ -60,6 +117,15 @@ function App() {
       .catch((e) => setTextError(e.message))
   }, [selectedId, selected?.status])
 
+  function toggle(id: number) {
+    setExcluded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -69,7 +135,7 @@ function App() {
     setError(null)
     try {
       const doc = await uploadDocument(file)
-      setDocuments((docs) => [doc, ...docs])
+      setDocuments((docs) => [{ ...doc, page_count: 0, ocr_page_count: 0 }, ...docs])
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -78,81 +144,109 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Belgeler</h1>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
-        onChange={handleFile}
-        hidden
-      />
-      <button onClick={() => inputRef.current?.click()} disabled={uploading}>
-        {uploading ? 'Yükleniyor…' : '+ Ekle'}
-      </button>
-
-      {error && <p role="alert">{error}</p>}
-
-      {documents.length === 0 ? (
-        <p>Henüz belge yok.</p>
-      ) : (
-        <ul>
-          {documents.map((doc) => (
-            <li key={doc.id}>
-              <button
-                onClick={() => setSelectedId(doc.id)}
-                aria-pressed={selectedId === doc.id}
-              >
-                <strong>{doc.filename}</strong>
-              </button>
-              <div>
-                {doc.content_type} · {formatSize(doc.size)} ·{' '}
-                {new Date(doc.created_at).toLocaleString('tr-TR')} ·{' '}
-                {STATUS_LABELS[doc.status] ?? doc.status}
-              </div>
-            </li>
+    <div className="app">
+      <header className="topbar">
+        Kaynakça
+        <div className="lang" role="group" aria-label="Language">
+          {(['tr', 'en'] as const).map((l) => (
+            <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l}>
+              {l.toUpperCase()}
+            </button>
           ))}
-        </ul>
-      )}
+        </div>
+      </header>
 
-      {selected && (
-        <section>
-          <h2>{selected.filename}</h2>
-          {selected.content_type === 'application/pdf' ? (
-            <iframe
-              src={documentFileUrl(selected.id)}
-              title={selected.filename}
-              width="100%"
-              height="800"
-            />
+      <div className="layout">
+        <aside className="sidebar" aria-label={t.searchable}>
+          <div className="sidebar-head">
+            <span>{t.searchable}</span>
+            <span className="count">
+              {searchable.length} / {ready.length}
+            </span>
+          </div>
+
+          {documents.length === 0 && <p className="hint">{t.noDocuments}</p>}
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {documents.map((doc) => (
+              <DocItem
+                key={doc.id}
+                doc={doc}
+                t={t}
+                checked={doc.status === 'ready' && !excluded.has(doc.id)}
+                selected={doc.id === selectedId}
+                onCheck={() => toggle(doc.id)}
+                onSelect={() => setSelectedId(doc.id)}
+              />
+            ))}
+          </ul>
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFile}
+            hidden
+          />
+          <button className="add" onClick={() => inputRef.current?.click()} disabled={uploading}>
+            {uploading ? t.uploading : t.addDocument}
+          </button>
+          <p className="hint">{t.addHint}</p>
+          {error && (
+            <p className="alert" role="alert">
+              {errorText(error)}
+            </p>
+          )}
+        </aside>
+
+        <main className="main">
+          {!selected ? (
+            <div className="empty">
+              <h2>{t.emptyTitle}</h2>
+              <p>{t.emptyBody}</p>
+            </div>
           ) : (
-            <img
-              src={documentFileUrl(selected.id)}
-              alt={selected.filename}
-              style={{ maxWidth: '100%' }}
-            />
-          )}
+            <section className="detail">
+              <div>
+                <h2>{selected.filename}</h2>
+                <p className="sub">
+                  {formatSize(selected.size)} ·{' '}
+                  {new Date(selected.created_at).toLocaleString(t.locale)}
+                </p>
+              </div>
 
-          <h3>Çıkarılan metin</h3>
-          {isPending(selected) && <p>Metin çıkarılıyor…</p>}
-          {selected.status === 'failed' && (
-            <p role="alert">Metin çıkarılamadı. Sunucu loguna bakın.</p>
+              {selected.content_type === 'application/pdf' ? (
+                <iframe
+                  className="preview"
+                  src={documentFileUrl(selected.id)}
+                  title={selected.filename}
+                />
+              ) : (
+                <img className="preview" src={documentFileUrl(selected.id)} alt={selected.filename} />
+              )}
+
+              <h3 className="section-title">{t.extractedText}</h3>
+              {isPending(selected) && <p className="sub">{t.extracting}</p>}
+              {selected.status === 'failed' && (
+                <p className="alert" role="alert">
+                  {t.failedDetail}
+                </p>
+              )}
+              {textError && (
+                <p className="alert" role="alert">
+                  {errorText(textError)}
+                </p>
+              )}
+              {pages?.map((p) => (
+                <article key={p.page} className="page">
+                  <h4 className="page-head">{t.pageHead(p.page, p.text.length)}</h4>
+                  <p className="page-text">{p.text || t.emptyPage}</p>
+                </article>
+              ))}
+            </section>
           )}
-          {textError && <p role="alert">{textError}</p>}
-          {pages?.map((p) => (
-            <article key={p.page}>
-              <h4>
-                Sayfa {p.page} · {p.text.length} karakter
-              </h4>
-              <pre style={{ whiteSpace: 'pre-wrap' }}>
-                {p.text || '(Bu sayfadan metin çıkmadı.)'}
-              </pre>
-            </article>
-          ))}
-        </section>
-      )}
-    </main>
+        </main>
+      </div>
+    </div>
   )
 }
 

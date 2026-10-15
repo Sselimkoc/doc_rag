@@ -5,11 +5,13 @@ export type Document = {
   size: number
   status: string
   created_at: string
+  page_count: number
+  ocr_page_count: number
 }
 
 export async function listDocuments(): Promise<Document[]> {
   const res = await fetch('/documents')
-  if (!res.ok) throw new Error('Belgeler alınamadı.')
+  if (!res.ok) throw new Error('list')
   return res.json()
 }
 
@@ -17,10 +19,7 @@ export async function uploadDocument(file: File): Promise<Document> {
   const body = new FormData()
   body.append('file', file)
   const res = await fetch('/documents', { method: 'POST', body })
-  if (!res.ok) {
-    const data = await res.json().catch(() => null)
-    throw new Error(data?.detail ?? 'Yükleme başarısız.')
-  }
+  if (!res.ok) throw new Error(res.status === 415 ? 'unsupported' : 'upload')
   return res.json()
 }
 
@@ -31,7 +30,7 @@ export type PageText = {
 
 export async function getDocumentText(id: number): Promise<PageText[]> {
   const res = await fetch(`/documents/${id}/text`)
-  if (!res.ok) throw new Error('Metin alınamadı.')
+  if (!res.ok) throw new Error('text')
   return res.json()
 }
 
