@@ -24,6 +24,17 @@ export async function uploadDocument(file: File): Promise<Document> {
   return res.json()
 }
 
+export type PageText = {
+  page: number
+  text: string
+}
+
+export async function getDocumentText(id: number): Promise<PageText[]> {
+  const res = await fetch(`/documents/${id}/text`)
+  if (!res.ok) throw new Error('Metin alınamadı.')
+  return res.json()
+}
+
 export function documentFileUrl(id: number) {
   return `/documents/${id}/file`
 }
