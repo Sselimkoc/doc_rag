@@ -8,6 +8,10 @@ OCR_DPI = 300
 # Metin katmanında bundan az karakter (boşluksuz) varsa sayfa taranmış sayılır;
 # taranmış sayfadaki sayfa numarası, damga gibi küçük metinler OCR'ı engellemesin.
 MIN_TEXT_CHARS = 50
+# Gömülü resimlerde bu güvenin altındaki kelimeler atılır (logo, çizgi gibi çöp okumalar).
+MIN_IMAGE_WORD_CONF = 60
+# Kısa kenarı bundan küçük gömülü resimde okunabilir yazı olamaz; OCR'a gönderilmez.
+MIN_IMAGE_PX = 20
 
 
 def extract_pdf_text(path: str) -> list[str]:
@@ -23,7 +27,7 @@ def extract_pdf_text(path: str) -> list[str]:
             if len("".join(text.split())) < MIN_TEXT_CHARS: # Metin yoksa OCR'a geç
                 text = extract_image_text(page.render(scale=OCR_DPI / 72).to_pil())
             else:
-                text = extract_page_with_tables(plumber_page)
+                text = extract_text_page(plumber_page, page)
             page.close()
             pages.append(text)
         return pages
@@ -32,28 +36,65 @@ def extract_pdf_text(path: str) -> list[str]:
         pdf.close()
 
 
-def extract_page_with_tables(page: pdfplumber.page.Page) -> str:
-    """Tablo dışı metni okur, tabloları sayfadaki yerlerine Markdown olarak koyar."""
-    tables = sorted(page.find_tables(), key=lambda t: (t.bbox[1], t.bbox[0]))
-    if not tables:
+def extract_text_page(page: pdfplumber.page.Page, pdfium_page: pdfium.PdfPage) -> str:
+    """Metin katmanlı sayfayı okur; tabloları Markdown, gömülü resimlerdeki yazıyı OCR ile yerlerine koyar."""
+    blocks = [(t.bbox, table_to_markdown(t.extract())) for t in page.find_tables()]
+    blocks += extract_embedded_images(page, pdfium_page)
+    if not blocks:
         return page.extract_text()
+    blocks.sort(key=lambda b: (b[0][1], b[0][0]))
 
-    def outside_tables(obj) -> bool:
+    def outside_blocks(obj) -> bool:
         cx, cy = (obj["x0"] + obj["x1"]) / 2, (obj["top"] + obj["bottom"]) / 2
-        return not any(x0 <= cx <= x1 and top <= cy <= bottom for x0, top, x1, bottom in (t.bbox for t in tables))
+        return not any(x0 <= cx <= x1 and top <= cy <= bottom for (x0, top, x1, bottom), _ in blocks)
 
-    rest = page.filter(outside_tables)
+    rest = page.filter(outside_blocks)
     parts = []
     x0, top, x1, bottom = page.bbox
-    for table in tables:
-        # Tablonun üstündeki ve yanındaki metin tablodan önce gelir.
-        if table.bbox[3] > top:
-            parts.append(rest.crop((x0, top, x1, table.bbox[3])).extract_text())
-        parts.append(table_to_markdown(table.extract()))
-        top = max(top, table.bbox[3])
+    for bbox, text in blocks:
+        # Bloğun üstündeki ve yanındaki metin bloktan önce gelir.
+        if bbox[3] > top:
+            parts.append(rest.crop((x0, top, x1, bbox[3])).extract_text())
+        parts.append(text)
+        top = max(top, bbox[3])
     if bottom > top:
         parts.append(rest.crop((x0, top, x1, bottom)).extract_text())
     return "\n\n".join(p for p in parts if p.strip())
+
+
+def extract_embedded_images(page: pdfplumber.page.Page, pdfium_page: pdfium.PdfPage) -> list[tuple[tuple, str]]:
+    """Sayfadaki gömülü resimleri OCR ile okur; (konum, metin) listesi döndürür."""
+    scale = OCR_DPI / 72
+    px0, ptop, px1, pbottom = page.bbox
+    rendered = None
+    results = []
+    for im in page.images:
+        if min(im["srcsize"]) < MIN_IMAGE_PX:
+            continue
+        bbox = (max(im["x0"], px0), max(im["top"], ptop), min(im["x1"], px1), min(im["bottom"], pbottom))
+        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+            continue
+        # Üstünde metin katmanı olan resim (ör. aranabilir tarama) zaten okunuyor.
+        if len("".join(page.within_bbox(bbox).extract_text().split())) >= MIN_TEXT_CHARS:
+            continue
+        if rendered is None:
+            rendered = pdfium_page.render(scale=scale).to_pil()
+        x0, top, x1, bottom = bbox
+        crop = rendered.crop(((x0 - px0) * scale, (top - ptop) * scale, (x1 - px0) * scale, (bottom - ptop) * scale))
+        text = extract_confident_text(crop)
+        if text:
+            results.append((bbox, text))
+    return results
+
+
+def extract_confident_text(image: Image.Image) -> str:
+    """Resmi OCR ile okur, güveni düşük kelimeleri atar; satırlar korunur."""
+    data = pytesseract.image_to_data(image, lang="tur+eng", output_type=pytesseract.Output.DICT)
+    lines = {}
+    for word, conf, *line in zip(data["text"], data["conf"], data["block_num"], data["par_num"], data["line_num"]):
+        if word.strip() and float(conf) >= MIN_IMAGE_WORD_CONF:
+            lines.setdefault(tuple(line), []).append(word)
+    return "\n".join(" ".join(words) for words in lines.values())
 
 
 def table_to_markdown(rows: list[list[str | None]]) -> str:
