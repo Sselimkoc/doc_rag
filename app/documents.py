@@ -1,13 +1,13 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from app.db import DATA_DIR, get_session
-from app.extract import extract_image_text, extract_pdf_text
-from app.models import Document
+from app.models import Document, Page
+from app.processing import process_document
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 ALLOWED_TYPES = {
@@ -20,7 +20,9 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 @router.post("", response_model=Document)
-async def upload_document(file: UploadFile, session: Session = Depends(get_session)):
+async def upload_document(
+    file: UploadFile, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
+):
     suffix = ALLOWED_TYPES.get(file.content_type)
     if suffix is None:
         raise HTTPException(415, "Sadece PDF, JPG ve PNG desteklenir.")
@@ -39,6 +41,7 @@ async def upload_document(file: UploadFile, session: Session = Depends(get_sessi
     session.add(document)
     session.commit()
     session.refresh(document)
+    background_tasks.add_task(process_document, document.id)
     return document
 
 
@@ -63,10 +66,9 @@ def get_document_file(document_id: int, session: Session = Depends(get_session))
 @router.get("/{document_id}/text")
 def get_document_text(document_id: int, session: Session = Depends(get_session)):
     document = session.get(Document, document_id)
-    if document is None or not Path(document.path).exists():
+    if document is None:
         raise HTTPException(404, "Belge bulunamadı.")
-    if document.content_type == "application/pdf":
-        pages = extract_pdf_text(document.path)
-    else:
-        pages = [extract_image_text(document.path)]
-    return [{"page": i + 1, "text": text} for i, text in enumerate(pages)]
+    if document.status != "ready":
+        raise HTTPException(409, f"Belgenin metni hazır değil (durum: {document.status}).")
+    pages = session.exec(select(Page).where(Page.document_id == document_id).order_by(Page.number)).all()
+    return [{"page": p.number, "text": p.text} for p in pages]

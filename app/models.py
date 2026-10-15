@@ -11,3 +11,10 @@ class Document(SQLModel, table=True):
     path: str
     status: str = "uploaded"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Page(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="document.id", index=True)
+    number: int
+    text: str
