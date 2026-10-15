@@ -18,3 +18,14 @@ class Page(SQLModel, table=True):
     document_id: int = Field(foreign_key="document.id", index=True)
     number: int
     text: str
+
+
+class Chunk(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="document.id", index=True)
+    page: int
+    position: int
+    text: str
+    kind: str  # text | table
+    source: str  # text (metin katmanı) | ocr
+    section: str | None = None  # parçanın başladığı yerdeki son başlık

@@ -14,8 +14,11 @@ MIN_IMAGE_WORD_CONF = 60
 MIN_IMAGE_PX = 20
 
 
-def extract_pdf_text(path: str) -> list[str]:
-    """PDF'i sayfa sayfa okur; metin katmanı boş ya da çok kısa sayfalarda OCR kullanır."""
+def extract_pdf_text(path: str) -> list[tuple[str, str]]:
+    """PDF'i sayfa sayfa okur; metin katmanı boş ya da çok kısa sayfalarda OCR kullanır.
+
+    (metin, kaynak) listesi döndürür; kaynak "text" (metin katmanı) ya da "ocr".
+    """
     pdf = pdfium.PdfDocument(path)
     plumber = pdfplumber.open(path)
     try:
@@ -25,11 +28,10 @@ def extract_pdf_text(path: str) -> list[str]:
             text = textpage.get_text_bounded()
             textpage.close()
             if len("".join(text.split())) < MIN_TEXT_CHARS: # Metin yoksa OCR'a geç
-                text = extract_image_text(page.render(scale=OCR_DPI / 72).to_pil())
+                pages.append((extract_image_text(page.render(scale=OCR_DPI / 72).to_pil()), "ocr"))
             else:
-                text = extract_text_page(plumber_page, page)
+                pages.append((extract_text_page(plumber_page, page), "text"))
             page.close()
-            pages.append(text)
         return pages
     finally:
         plumber.close()
