@@ -29,3 +29,10 @@ class Chunk(SQLModel, table=True):
     kind: str  # text | table
     source: str  # text (metin katmanı) | ocr
     section: str | None = None  # parçanın başladığı yerdeki son başlık
+
+
+class Embedding(SQLModel, table=True):
+    chunk_id: int = Field(foreign_key="chunk.id", primary_key=True)
+    document_id: int = Field(foreign_key="document.id", index=True)
+    model: str
+    vector: bytes  # float32, birim uzunlukta
