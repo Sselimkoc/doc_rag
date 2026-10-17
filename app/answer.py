@@ -1,3 +1,4 @@
+import re
 import unicodedata
 import urllib.error
 
@@ -52,6 +53,27 @@ def normalize(text: str) -> str:
     return " ".join(text.split())
 
 
+_FOOTNOTE = re.compile(r"(?<=[^\s\[])\[\d+\]")
+_SOURCE_LABEL = re.compile(r"^\(\s*(source|sources|kaynak|kaynaklar)\b|\[\d+\]", re.IGNORECASE)
+
+
+def clean_answer(answer: str) -> str:
+    """Modelin cevaba eklediği kaynak atıflarını siler; kaynaklar zaten citations'ta."""
+    answer = _FOOTNOTE.sub("", answer).strip()
+    # Sondaki parantezler (iç içe olabilir) kaynak etiketi veya [n] içeriyorsa atılır.
+    while answer.endswith(")"):
+        depth, start = 0, None
+        for i in range(len(answer) - 1, -1, -1):
+            depth += {")": 1, "(": -1}.get(answer[i], 0)
+            if depth == 0:
+                start = i
+                break
+        if start is None or not _SOURCE_LABEL.search(answer[start:]):
+            break
+        answer = answer[:start].rstrip()
+    return answer
+
+
 def build_prompt(question: str, sources: list[SearchResult]) -> str:
     blocks = [f"[{i}] ({s.filename}, page {s.page})\n{s.text}" for i, s in enumerate(sources, start=1)]
     return f"Question: {question}\n\nSources:\n\n" + "\n\n".join(blocks)
@@ -88,7 +110,7 @@ def answer_question(session: Session, question: str, document_ids: list[int] | N
         return refuse("unverified", unverified)
 
     return AnswerResponse(
-        answered=True, answer=reply["answer"].strip(), refusal=None,
+        answered=True, answer=clean_answer(reply["answer"]), refusal=None,
         citations=citations, unverified_quotes=unverified, sources=sources,
     )
 
