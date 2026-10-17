@@ -21,4 +21,5 @@ load_env_file()
 DATA_DIR = Path(os.environ.get("DOC_RAG_DATA") or "data")
 OLLAMA_URL = os.environ.get("OLLAMA_URL") or "http://localhost:11434"
 EMBED_MODEL = os.environ.get("EMBED_MODEL") or "bge-m3"
+LLM_MODEL = os.environ.get("LLM_MODEL") or "qwen2.5:7b-instruct"
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD") or None 

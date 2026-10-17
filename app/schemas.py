@@ -20,6 +20,19 @@ class SearchRequest(BaseModel):
     document_ids: list[int] | None = None  # None: bütün belgeler
 
 
+class AnswerRequest(BaseModel):
+    question: str = Field(min_length=1)
+    document_ids: list[int] | None = None
+
+
+class Citation(BaseModel):
+    chunk_id: int
+    document_id: int
+    filename: str
+    page: int
+    quote: str
+
+
 class SearchResult(BaseModel):
     chunk_id: int
     document_id: int
@@ -30,3 +43,13 @@ class SearchResult(BaseModel):
     source: str
     score: float
     text: str
+
+
+class AnswerResponse(BaseModel):
+    answered: bool
+    answer: str
+    # no_sources: ilgili parça yok | not_in_sources: model kaynaklarda bulamadı | unverified: alıntı kaynakta yok
+    refusal: str | None
+    citations: list[Citation]
+    unverified_quotes: int
+    sources: list[SearchResult]

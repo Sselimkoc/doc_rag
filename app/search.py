@@ -36,6 +36,10 @@ def search_chunks(request: SearchRequest, session: Session = Depends(get_session
         results = search(session, request.query, request.k, request.document_ids)
     except urllib.error.URLError:
         raise HTTPException(503, "Embedding servisine (Ollama) ulaşılamadı.")
+    return to_results(session, results)
+
+
+def to_results(session: Session, results: list[tuple[Chunk, float]]) -> list[SearchResult]:
     filenames = dict(session.exec(select(Document.id, Document.filename)).all())
     return [
         SearchResult(
