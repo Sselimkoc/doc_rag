@@ -46,6 +46,12 @@ def test_normalize_applies_nfkc():
     assert normalize("ﬁle") == "file"
 
 
+def test_normalize_matches_dotted_capital_i():
+    # jet-02: alıntı "İlk başarılı uygulama…", kaynakta "Fakat ilk başarılı uygulama…".
+    assert normalize("İlk İngilizler") == "ilk ingilizler"
+    assert normalize("İlk başarılı") in normalize("Fakat ilk başarılı uygulama")
+
+
 # clean_answer: değerlendirmede görülen gerçek model çıktıları
 
 @pytest.mark.parametrize("raw, cleaned", [
