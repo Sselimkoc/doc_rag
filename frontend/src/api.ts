@@ -43,3 +43,42 @@ export async function getDocumentText(id: number): Promise<PageText[]> {
 export function documentFileUrl(id: number) {
   return `/documents/${id}/file`
 }
+
+export type Citation = {
+  chunk_id: number
+  document_id: number
+  filename: string
+  page: number
+  quote: string
+}
+
+export type Source = {
+  chunk_id: number
+  document_id: number
+  filename: string
+  page: number
+  section: string | null
+  kind: string
+  source: string
+  score: number
+  text: string
+}
+
+export type Answer = {
+  answered: boolean
+  answer: string
+  refusal: string | null
+  citations: Citation[]
+  unverified_quotes: number
+  sources: Source[]
+}
+
+export async function askQuestion(question: string, documentIds: number[] | null): Promise<Answer> {
+  const res = await fetch('/answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, document_ids: documentIds }),
+  })
+  if (!res.ok) throw new Error(res.status === 503 ? 'ollama' : 'answer')
+  return res.json()
+}

@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/documents': 'http://localhost:8000',
+      '/search': 'http://localhost:8000',
+      '/answer': 'http://localhost:8000',
     },
   },
 })

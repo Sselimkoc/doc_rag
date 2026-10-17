@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  askQuestion,
   documentFileUrl,
   getDocumentText,
   listDocuments,
@@ -7,6 +8,7 @@ import {
   type Document,
   type PageText,
 } from './api'
+import { Evidence, TurnView, type EvidenceRef, type Turn } from './Chat'
 import { initialLang, messages, saveLang, type Lang, type Messages } from './i18n'
 
 const PAGE_SIZE = 100
@@ -89,7 +91,13 @@ function App() {
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [pages, setPages] = useState<PageText[] | null>(null)
   const [textError, setTextError] = useState<string | null>(null)
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [question, setQuestion] = useState('')
+  const [evidence, setEvidence] = useState<EvidenceRef | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const turnsRef = useRef<HTMLDivElement>(null)
+  // Kullanıcı eski mesajlara çıkmadıysa akış en altta tutulur.
+  const stickToBottom = useRef(true)
 
   const t = messages[lang]
   const errorText = (key: string) => t.errors[key] ?? key
@@ -98,6 +106,8 @@ function App() {
   const ready = documents.filter((d) => d.status === 'ready')
   const searchable = ready.filter((d) => !excluded.has(d.id))
   const query = filter.trim().toLocaleLowerCase(t.locale)
+  const asking = turns.some((turn) => !turn.answer && !turn.error)
+  const evidenceTurn = turns.find((turn) => turn.id === evidence?.turnId) ?? null
   const shown = query
     ? documents.filter((d) => d.filename.toLocaleLowerCase(t.locale).includes(query))
     : documents
@@ -181,6 +191,36 @@ function App() {
       .then(setPages)
       .catch((e) => setTextError(e.message))
   }, [selectedId, selected?.status])
+
+  useLayoutEffect(() => {
+    const el = turnsRef.current
+    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+  }, [turns, selectedId])
+
+  function handleTurnsScroll() {
+    const el = turnsRef.current
+    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
+
+  async function ask(e: React.FormEvent) {
+    e.preventDefault()
+    const text = question.trim()
+    if (!text || asking || searchable.length === 0) return
+    const id = Date.now()
+    setQuestion('')
+    setSelectedId(null)
+    stickToBottom.current = true
+    setTurns((all) => [...all, { id, question: text, startedAt: id, docCount: searchable.length }])
+    // Hiçbir belge çıkarılmadıysa filtre gönderilmez; arka planda henüz gelmemiş belgeler de aranır.
+    const ids = excluded.size > 0 ? searchable.map((d) => d.id) : null
+    try {
+      const answer = await askQuestion(text, ids)
+      setTurns((all) => all.map((turn) => (turn.id === id ? { ...turn, answer } : turn)))
+      if (answer.citations.length > 0) setEvidence({ turnId: id, index: 0 })
+    } catch (err) {
+      setTurns((all) => all.map((turn) => (turn.id === id ? { ...turn, error: (err as Error).message } : turn)))
+    }
+  }
 
   function toggle(id: number) {
     setExcluded((prev) => {
@@ -328,52 +368,98 @@ function App() {
         </aside>
 
         <main className="main">
-          {!selected ? (
-            <div className="empty">
-              <h2>{t.emptyTitle}</h2>
-              <p>{t.emptyBody}</p>
+          {selected ? (
+            <div className="scroll">
+              <button
+                className="link back"
+                onClick={() => {
+                  stickToBottom.current = true
+                  setSelectedId(null)
+                }}
+              >
+                {t.backToChat}
+              </button>
+              <section className="detail">
+                <div>
+                  <h2>{selected.filename}</h2>
+                  <p className="sub">
+                    {formatSize(selected.size)} ·{' '}
+                    {new Date(selected.created_at).toLocaleString(t.locale)}
+                  </p>
+                </div>
+
+                {selected.content_type === 'application/pdf' ? (
+                  <iframe
+                    className="preview"
+                    src={documentFileUrl(selected.id)}
+                    title={selected.filename}
+                  />
+                ) : (
+                  <img className="preview" src={documentFileUrl(selected.id)} alt={selected.filename} />
+                )}
+
+                <h3 className="section-title">{t.extractedText}</h3>
+                {isPending(selected) && <p className="sub">{t.extracting}</p>}
+                {selected.status === 'failed' && (
+                  <p className="alert" role="alert">
+                    {t.failedDetail}
+                  </p>
+                )}
+                {textError && (
+                  <p className="alert" role="alert">
+                    {errorText(textError)}
+                  </p>
+                )}
+                {pages?.map((p) => (
+                  <article key={p.page} className="page">
+                    <h4 className="page-head">{t.pageHead(p.page, p.text.length)}</h4>
+                    <p className="page-text">{p.text || t.emptyPage}</p>
+                  </article>
+                ))}
+              </section>
             </div>
           ) : (
-            <section className="detail">
-              <div>
-                <h2>{selected.filename}</h2>
-                <p className="sub">
-                  {formatSize(selected.size)} ·{' '}
-                  {new Date(selected.created_at).toLocaleString(t.locale)}
-                </p>
+            <div className="chat">
+              <div className={turns.length ? 'turns has-turns' : 'turns'} ref={turnsRef} onScroll={handleTurnsScroll}>
+                {turns.length === 0 ? (
+                  <div className="empty">
+                    <h2>{t.emptyTitle}</h2>
+                    <p>{t.emptyBody}</p>
+                  </div>
+                ) : (
+                  turns.map((turn) => (
+                    <TurnView
+                      key={turn.id}
+                      turn={turn}
+                      t={t}
+                      active={evidence?.turnId === turn.id ? evidence.index : null}
+                      onCite={(index) => setEvidence({ turnId: turn.id, index })}
+                      errorText={errorText}
+                    />
+                  ))
+                )}
               </div>
-
-              {selected.content_type === 'application/pdf' ? (
-                <iframe
-                  className="preview"
-                  src={documentFileUrl(selected.id)}
-                  title={selected.filename}
-                />
-              ) : (
-                <img className="preview" src={documentFileUrl(selected.id)} alt={selected.filename} />
-              )}
-
-              <h3 className="section-title">{t.extractedText}</h3>
-              {isPending(selected) && <p className="sub">{t.extracting}</p>}
-              {selected.status === 'failed' && (
-                <p className="alert" role="alert">
-                  {t.failedDetail}
-                </p>
-              )}
-              {textError && (
-                <p className="alert" role="alert">
-                  {errorText(textError)}
-                </p>
-              )}
-              {pages?.map((p) => (
-                <article key={p.page} className="page">
-                  <h4 className="page-head">{t.pageHead(p.page, p.text.length)}</h4>
-                  <p className="page-text">{p.text || t.emptyPage}</p>
-                </article>
-              ))}
-            </section>
+              <form className="ask" onSubmit={ask}>
+                <label htmlFor="question">{t.question}</label>
+                <div className="ask-row">
+                  <input
+                    id="question"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder={t.questionPlaceholder}
+                    autoComplete="off"
+                  />
+                  <button className="btn" disabled={!question.trim() || asking || searchable.length === 0}>
+                    {t.ask}
+                  </button>
+                </div>
+                {!loadingList && searchable.length === 0 && <p className="hint">{t.noSearchable}</p>}
+              </form>
+            </div>
           )}
         </main>
+
+        <Evidence turn={evidenceTurn} index={evidenceTurn ? (evidence?.index ?? null) : null} t={t} />
       </div>
     </div>
   )
