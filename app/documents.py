@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import distinct, func
 from sqlmodel import Session, select
@@ -48,13 +48,28 @@ async def upload_document(
 
 
 @router.get("", response_model=list[DocumentSummary])
-def list_documents(session: Session = Depends(get_session)):
-    documents = session.exec(select(Document).order_by(Document.created_at.desc())).all()
-    pages = dict(session.exec(select(Page.document_id, func.count()).group_by(Page.document_id)).all())
+def list_documents(
+    limit: int | None = Query(None, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    ids: list[int] | None = Query(None),
+    session: Session = Depends(get_session),
+):
+    # limit verilmezse tüm belgeler döner; id sırası aynı anda yüklenenlerde sayfaları sabit tutar.
+    query = select(Document).order_by(Document.created_at.desc(), Document.id.desc()).offset(offset).limit(limit)
+    # Arayüz durum yenilerken yalnızca işlenmekte olan belgeleri sorar.
+    if ids is not None:
+        query = query.where(Document.id.in_(ids))
+    documents = session.exec(query).all()
+    ids = [d.id for d in documents]
+    pages = dict(
+        session.exec(
+            select(Page.document_id, func.count()).where(Page.document_id.in_(ids)).group_by(Page.document_id)
+        ).all()
+    )
     ocr_pages = dict(
         session.exec(
             select(Chunk.document_id, func.count(distinct(Chunk.page)))
-            .where(Chunk.source == "ocr")
+            .where(Chunk.source == "ocr", Chunk.document_id.in_(ids))
             .group_by(Chunk.document_id)
         ).all()
     )

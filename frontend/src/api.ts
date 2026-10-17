@@ -9,8 +9,14 @@ export type Document = {
   ocr_page_count: number
 }
 
-export async function listDocuments(): Promise<Document[]> {
-  const res = await fetch('/documents')
+export async function listDocuments(
+  query: { offset: number; limit: number } | { ids: number[] },
+): Promise<Document[]> {
+  const params =
+    'ids' in query
+      ? query.ids.map((id) => `ids=${id}`).join('&')
+      : `offset=${query.offset}&limit=${query.limit}`
+  const res = await fetch(`/documents?${params}`)
   if (!res.ok) throw new Error('list')
   return res.json()
 }

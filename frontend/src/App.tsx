@@ -9,6 +9,8 @@ import {
 } from './api'
 import { initialLang, messages, saveLang, type Lang, type Messages } from './i18n'
 
+const PAGE_SIZE = 100
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -75,6 +77,7 @@ function App() {
   const [documents, setDocuments] = useState<Document[]>([])
   // İlk liste gelene kadar "belge yok" yerine yükleniyor gösterilir.
   const [loadingList, setLoadingList] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   // Yüklenen dosya sırası: [şu anki, toplam]
   const [uploading, setUploading] = useState<[number, number] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -91,7 +94,7 @@ function App() {
   const t = messages[lang]
   const errorText = (key: string) => t.errors[key] ?? key
   const selected = documents.find((d) => d.id === selectedId) ?? null
-  const hasPending = documents.some(isPending)
+  const pendingKey = documents.filter(isPending).map((d) => d.id).join(',')
   const ready = documents.filter((d) => d.status === 'ready')
   const searchable = ready.filter((d) => !excluded.has(d.id))
   const query = filter.trim().toLocaleLowerCase(t.locale)
@@ -104,11 +107,42 @@ function App() {
     saveLang(lang)
   }, [lang])
 
+  // Önce ekrana sığacak kadar belge gelir, kalanlar arka planda sayfa sayfa eklenir.
   useEffect(() => {
-    listDocuments()
-      .then(setDocuments)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoadingList(false))
+    let cancelled = false
+    async function load() {
+      let offset = 0
+      let limit = Math.ceil(window.innerHeight / 50)
+      try {
+        for (;;) {
+          const start = offset
+          const page = await listDocuments({ offset, limit })
+          if (cancelled) return
+          // Bu arada yüklenen belge sırayı kaydırabilir; aynı belge iki kez eklenmez.
+          setDocuments((docs) => {
+            if (start === 0) return page
+            const ids = new Set(docs.map((d) => d.id))
+            return [...docs, ...page.filter((d) => !ids.has(d.id))]
+          })
+          setLoadingList(false)
+          if (page.length < limit) break
+          setLoadingMore(true)
+          offset += limit
+          limit = PAGE_SIZE
+        }
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message)
+      } finally {
+        if (!cancelled) {
+          setLoadingList(false)
+          setLoadingMore(false)
+        }
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -123,14 +157,20 @@ function App() {
     }
   }, [])
 
-  // İşlenen belge varken durumlar 2 saniyede bir yenilenir.
+  // İşlenen belgelerin durumu 2 saniyede bir yenilenir; liste yeniden çekilmez.
   useEffect(() => {
-    if (!hasPending) return
+    if (!pendingKey) return
+    const ids = pendingKey.split(',').map(Number)
     const timer = setInterval(() => {
-      listDocuments().then(setDocuments).catch((e) => setError(e.message))
+      listDocuments({ ids })
+        .then((updated) => {
+          const byId = new Map(updated.map((d) => [d.id, d]))
+          setDocuments((docs) => docs.map((d) => byId.get(d.id) ?? d))
+        })
+        .catch((e) => setError(e.message))
     }, 2000)
     return () => clearInterval(timer)
-  }, [hasPending])
+  }, [pendingKey])
 
   // Seçili belge hazır olunca metni getirilir.
   useEffect(() => {
@@ -249,6 +289,12 @@ function App() {
                 />
               ))}
             </ul>
+            {loadingMore && (
+              <p className="hint loading" role="status">
+                <span className="spinner" aria-hidden="true" />
+                {t.loadingMore}
+              </p>
+            )}
           </div>
 
           <div className="sidebar-foot">
