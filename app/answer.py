@@ -48,7 +48,7 @@ _QUOTES = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": 
 def normalize(text: str) -> str:
     """Alıntı karşılaştırması için: Unicode biçimi, tırnaklar, büyük/küçük harf ve boşluklar eşitlenir."""
     # "İ".lower() "i" + birleştirici nokta verir; "İlk" ile "ilk" eşleşsin diye nokta atılır.
-    text = unicodedata.normalize("NFKC", text).translate(_QUOTES).lower().replace("̇", "")
+    text = unicodedata.normalize("NFKC", text).translate(_QUOTES).lower().replace("\u0307", "")
     # PDF metnindeki kontrol karakterleri eşleşmeyi bozmasın.
     text = "".join(c for c in text if not unicodedata.category(c).startswith("C") or c.isspace())
     return " ".join(text.split())
