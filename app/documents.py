@@ -1,15 +1,15 @@
 import uuid
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import distinct, func
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, select
 
 from app.db import DATA_DIR, get_session
 from app.models import Chunk, Document, Page
 from app.processing import process_document
+from app.schemas import DocumentSummary
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 ALLOWED_TYPES = {
@@ -45,17 +45,6 @@ async def upload_document(
     session.refresh(document)
     background_tasks.add_task(process_document, document.id)
     return document
-
-
-class DocumentSummary(SQLModel):
-    id: int
-    filename: str
-    content_type: str
-    size: int
-    status: str
-    created_at: datetime
-    page_count: int
-    ocr_page_count: int  # en az bir parçası OCR'dan gelen sayfalar
 
 
 @router.get("", response_model=list[DocumentSummary])

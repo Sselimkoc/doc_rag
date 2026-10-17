@@ -1,9 +1,8 @@
-from pathlib import Path
-
 from sqlalchemy import inspect, text
 from sqlmodel import Session, SQLModel, create_engine
 
-DATA_DIR = Path("data")
+from app.config import DATA_DIR
+
 DB_PATH = DATA_DIR / "doc_rag.db"
 
 engine = create_engine(f"sqlite:///{DB_PATH}")

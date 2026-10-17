@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.db import init_db
 from app.documents import router as documents_router
 from app.processing import process_pending
+from app.search import router as search_router
 
 
 @asynccontextmanager
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="doc_rag", lifespan=lifespan)
 app.include_router(documents_router)
+app.include_router(search_router)
 
 
 @app.get("/health")

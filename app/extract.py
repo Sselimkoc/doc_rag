@@ -8,6 +8,11 @@ import pypdfium2.raw as raw
 import pytesseract
 from PIL import Image
 
+from app.config import TESSERACT_CMD
+
+if TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+
 # Taranmış sayılan sayfalar bu çözünürlükte resme çevrilip OCR'a gider.
 OCR_DPI = 300
 # Metin katmanında bundan az karakter (boşluksuz) varsa sayfa taranmış sayılır;

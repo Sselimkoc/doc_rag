@@ -3,3 +3,5 @@ __pycache__/
 data/
 DEVLOG.md
 TESTING.md
+eval/.index/
+.env

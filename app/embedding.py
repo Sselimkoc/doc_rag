@@ -1,11 +1,10 @@
 import json
-import os
 import urllib.request
 
 import numpy as np
 
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-m3")
+from app.config import EMBED_MODEL, OLLAMA_URL
+
 BATCH_SIZE = 32
 
 
