@@ -5,3 +5,4 @@ DEVLOG.md
 TESTING.md
 eval/.index/
 .env
+.coverage
