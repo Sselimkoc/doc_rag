@@ -7,7 +7,7 @@ from sqlalchemy import distinct, func
 from sqlmodel import Session, select
 
 from app.db import DATA_DIR, get_session
-from app.models import Chunk, Document, Page
+from app.models import Chunk, Document, Page, not_deleted
 from app.processing import process_document
 from app.schemas import DocumentSummary
 
@@ -17,6 +17,7 @@ ALLOWED_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
 }
+PENDING = ("uploaded", "processing")
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -55,7 +56,7 @@ def list_documents(
     session: Session = Depends(get_session),
 ):
     # limit verilmezse tüm belgeler döner; id sırası aynı anda yüklenenlerde sayfaları sabit tutar.
-    query = select(Document).order_by(Document.created_at.desc(), Document.id.desc()).offset(offset).limit(limit)
+    query = select(Document).where(not_deleted()).order_by(Document.created_at.desc(), Document.id.desc()).offset(offset).limit(limit)
     # Arayüz durum yenilerken yalnızca işlenmekte olan belgeleri sorar.
     if ids is not None:
         query = query.where(Document.id.in_(ids))
@@ -75,7 +76,7 @@ def list_documents(
     )
     return [
         DocumentSummary(
-            **d.model_dump(exclude={"path"}),
+            **d.model_dump(exclude={"path", "is_deleted"}),
             page_count=pages.get(d.id, 0),
             ocr_page_count=ocr_pages.get(d.id, 0),
         )
@@ -83,10 +84,39 @@ def list_documents(
     ]
 
 
+def get_active(session: Session, document_id: int) -> Document:
+    document = session.get(Document, document_id)
+    if document is None or document.is_deleted:
+        raise HTTPException(404, "Belge bulunamadı.")
+    return document
+
+
+@router.delete("/{document_id}", status_code=204)
+def delete_document(document_id: int, session: Session = Depends(get_session)):
+    document = get_active(session, document_id)
+    # Arka planda işlenirken silinirse işlem yine de biter; karışıklık olmasın diye engellenir.
+    if document.status in PENDING:
+        raise HTTPException(409, "İşlenmekte olan belge silinemez.")
+    document.is_deleted = True
+    session.add(document)
+    session.commit()
+
+
+@router.post("/{document_id}/reprocess", status_code=202)
+def reprocess_document(document_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+    document = get_active(session, document_id)
+    if document.status in PENDING:
+        raise HTTPException(409, "Belge zaten işleniyor.")
+    document.status = "uploaded"
+    session.add(document)
+    session.commit()
+    background_tasks.add_task(process_document, document_id)
+
+
 @router.get("/{document_id}/file")
 def get_document_file(document_id: int, session: Session = Depends(get_session)):
-    document = session.get(Document, document_id)
-    if document is None or not Path(document.path).exists():
+    document = get_active(session, document_id)
+    if not Path(document.path).exists():
         raise HTTPException(404, "Belge bulunamadı.")
     return FileResponse(
         document.path,
@@ -98,9 +128,7 @@ def get_document_file(document_id: int, session: Session = Depends(get_session))
 
 @router.get("/{document_id}/text")
 def get_document_text(document_id: int, session: Session = Depends(get_session)):
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(404, "Belge bulunamadı.")
+    document = get_active(session, document_id)
     if document.status != "ready":
         raise HTTPException(409, f"Belgenin metni hazır değil (durum: {document.status}).")
     pages = session.exec(select(Page).where(Page.document_id == document_id).order_by(Page.number)).all()

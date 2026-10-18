@@ -7,7 +7,7 @@ from app.chunking import chunk_page
 from app.db import engine
 from app.embedding import EMBED_MODEL, embed
 from app.extract import extract_image_text, extract_pdf_text
-from app.models import Chunk, Document, Embedding, Page
+from app.models import Chunk, Document, Embedding, Page, not_deleted
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +79,12 @@ def process_pending() -> None:
     with Session(engine) as session:
         ids = session.exec(
             select(Document.id).where(
-                or_(Document.status.in_(["uploaded", "processing"]), (Document.status == "ready") & ~has_chunks)
+                or_(Document.status.in_(["uploaded", "processing"]), (Document.status == "ready") & ~has_chunks),
+                not_deleted(),
             )
         ).all()
         to_embed = session.exec(
-            select(Document.id).where((Document.status == "ready") & has_chunks & ~has_embeddings)
+            select(Document.id).where((Document.status == "ready") & has_chunks & ~has_embeddings, not_deleted())
         ).all()
     for document_id in ids:
         process_document(document_id)

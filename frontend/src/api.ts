@@ -29,6 +29,16 @@ export async function uploadDocument(file: File): Promise<Document> {
   return res.json()
 }
 
+export async function deleteDocument(id: number) {
+  const res = await fetch(`/documents/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(res.status === 409 ? 'busy' : 'remove')
+}
+
+export async function reprocessDocument(id: number) {
+  const res = await fetch(`/documents/${id}/reprocess`, { method: 'POST' })
+  if (!res.ok) throw new Error(res.status === 409 ? 'busy' : 'reprocess')
+}
+
 export type PageText = {
   page: number
   text: string

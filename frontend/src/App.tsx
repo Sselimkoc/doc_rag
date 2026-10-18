@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   askQuestion,
+  deleteDocument,
   documentFileUrl,
   getDocumentText,
   listDocuments,
+  reprocessDocument,
   uploadDocument,
   type Document,
   type PageText,
@@ -36,6 +38,8 @@ function DocItem({
   selected,
   onCheck,
   onSelect,
+  onReprocess,
+  onRemove,
 }: {
   doc: Document
   t: Messages
@@ -43,8 +47,32 @@ function DocItem({
   selected: boolean
   onCheck: () => void
   onSelect: () => void
+  onReprocess: () => void
+  onRemove: () => void
 }) {
   const note = ocrNote(doc, t)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Menü dışına tıklanınca ya da Esc ile kapanır.
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node))
+        setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [menuOpen])
+
+  function choose(action: () => void) {
+    setMenuOpen(false)
+    action()
+  }
   return (
     <li className={selected ? 'doc selected' : 'doc'}>
       <input
@@ -57,6 +85,30 @@ function DocItem({
       <button className="doc-name" onClick={onSelect} aria-pressed={selected}>
         {doc.filename}
       </button>
+      <div className="doc-menu" ref={menuRef}>
+        <button
+          className="more"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={t.docActions(doc.filename)}
+        >
+          ⋯
+        </button>
+        {menuOpen && (
+          <div className="menu" role="menu">
+            <button role="menuitem" onClick={() => choose(onSelect)}>
+              {t.view}
+            </button>
+            <button role="menuitem" onClick={() => choose(onReprocess)} disabled={isPending(doc)}>
+              {t.reprocess}
+            </button>
+            <button role="menuitem" className="danger" onClick={() => choose(onRemove)} disabled={isPending(doc)}>
+              {t.remove}
+            </button>
+          </div>
+        )}
+      </div>
       <div className="doc-meta">
         {doc.status === 'ready' && <span className="num">{t.pages(doc.page_count)}</span>}
         {doc.status === 'uploaded' && <span>{t.queued}</span>}
@@ -246,6 +298,26 @@ function App() {
     })
   }
 
+  async function removeDocument(doc: Document) {
+    if (!window.confirm(t.confirmRemove(doc.filename))) return
+    try {
+      await deleteDocument(doc.id)
+      setDocuments((docs) => docs.filter((d) => d.id !== doc.id))
+      if (selectedId === doc.id) setSelectedId(null)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function reprocess(doc: Document) {
+    try {
+      await reprocessDocument(doc.id)
+      setDocuments((docs) => docs.map((d) => (d.id === doc.id ? { ...d, status: 'uploaded' } : d)))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   // Dosyalar sırayla yüklenir; biri başarısız olursa diğerleri devam eder.
   async function uploadFiles(files: File[]) {
     if (files.length === 0 || uploading) return
@@ -348,6 +420,8 @@ function App() {
                   selected={doc.id === selectedId}
                   onCheck={() => toggle(doc.id)}
                   onSelect={() => setSelectedId(doc.id)}
+                  onReprocess={() => reprocess(doc)}
+                  onRemove={() => removeDocument(doc)}
                 />
               ))}
             </ul>

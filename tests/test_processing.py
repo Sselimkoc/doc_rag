@@ -6,6 +6,7 @@ from sqlalchemy import inspect, text
 from sqlmodel import Session, SQLModel, select
 
 from app import db, embedding, processing
+from app.documents import list_documents
 from app.models import Chunk, Document, Embedding, Page
 
 PAGE = "# 1. Kapsam\n" + " ".join(f"Cümle {i} biraz uzunca bir metin içerir." for i in range(60))
@@ -94,6 +95,17 @@ def test_missing_column_is_added_to_existing_table(fresh_db):
         conn.execute(text('ALTER TABLE chunk DROP COLUMN "section"'))
     db.add_missing_columns()
     assert "section" in {c["name"] for c in inspect(fresh_db).get_columns("chunk")}
+
+
+def test_documents_from_before_soft_delete_are_still_listed(fresh_db):
+    # Sonradan eklenen is_deleted sütunu eski satırlarda NULL kalır.
+    doc = add_document(fresh_db)
+    with fresh_db.begin() as conn:
+        conn.execute(text('ALTER TABLE document DROP COLUMN "is_deleted"'))
+    db.add_missing_columns()
+    with Session(fresh_db) as session:
+        assert session.get(Document, doc).is_deleted is None
+        assert [d.id for d in list_documents(limit=None, offset=0, ids=None, session=session)] == [doc]
 
 
 def test_embed_batches_requests_and_normalizes(monkeypatch):

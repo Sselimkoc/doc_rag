@@ -10,6 +10,7 @@
   --blue-bg: #e1f3fe;
   --yellow: #956400;
   --yellow-bg: #fbf3db;
+  --red: #b3261e;
   --check: #b9b7b0;
   --sans: 'Geist', system-ui, sans-serif;
   --mono: 'Geist Mono', ui-monospace, monospace;
@@ -144,7 +145,7 @@ button {
 
 .doc {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 2px 8px;
   padding: 8px;
   border-radius: 8px;
@@ -173,6 +174,64 @@ button {
   font-weight: 500;
   overflow-wrap: anywhere;
   cursor: pointer;
+}
+
+.doc-menu {
+  position: relative;
+}
+
+.more {
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.more:hover,
+.more[aria-expanded='true'] {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
+}
+
+.menu button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover:not(:disabled) {
+  background: var(--line-soft);
+}
+
+.menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.menu .danger:not(:disabled) {
+  color: var(--red);
 }
 
 .doc-meta {

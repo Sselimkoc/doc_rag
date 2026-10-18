@@ -16,6 +16,11 @@ const tr = {
   ocrAll: 'Taramadan okundu, hata olabilir',
   ocrSome: (ocr: number, total: number) => `${ocr} / ${total} sayfa taramadan okundu, hata olabilir`,
   addDocument: '+ Belge ekle',
+  docActions: (name: string) => `${name} işlemleri`,
+  view: 'Görüntüle',
+  reprocess: 'Yeniden işle',
+  remove: 'Sil',
+  confirmRemove: (name: string) => `"${name}" silinsin mi? Belge listeden ve aramadan kalkar.`,
   uploading: (i: number, n: number) => (n > 1 ? `Yükleniyor… ${i} / ${n}` : 'Yükleniyor…'),
   addHint: 'PDF, JPG veya PNG; birden çok dosya seçebilir ya da buraya sürükleyebilirsiniz. Taranmış belgeler OCR ile okunur.',
   filterPlaceholder: 'Belge adıyla filtrele',
@@ -65,6 +70,9 @@ const tr = {
     text: 'Metin alınamadı.',
     answer: 'Cevap alınamadı.',
     ollama: 'Model servisine (Ollama) ulaşılamadı.',
+    busy: 'Belge işlenirken bu işlem yapılamaz.',
+    remove: 'Belge silinemedi.',
+    reprocess: 'Belge yeniden işlenemedi.',
   } as Record<string, string>,
 }
 
@@ -84,6 +92,11 @@ const en: typeof tr = {
   ocrAll: 'Read from a scan, may contain errors',
   ocrSome: (ocr, total) => `${ocr} / ${total} pages read from a scan, may contain errors`,
   addDocument: '+ Add document',
+  docActions: (name) => `Actions for ${name}`,
+  view: 'View',
+  reprocess: 'Reprocess',
+  remove: 'Delete',
+  confirmRemove: (name) => `Delete "${name}"? It will be removed from the list and from search.`,
   uploading: (i, n) => (n > 1 ? `Uploading… ${i} / ${n}` : 'Uploading…'),
   addHint: 'PDF, JPG or PNG; select several files or drop them here. Scanned documents are read with OCR.',
   filterPlaceholder: 'Filter by name',
@@ -133,6 +146,9 @@ const en: typeof tr = {
     text: 'Could not load text.',
     answer: 'Could not get an answer.',
     ollama: 'Could not reach the model service (Ollama).',
+    busy: 'Not possible while the document is being processed.',
+    remove: 'Could not delete the document.',
+    reprocess: 'Could not reprocess the document.',
   },
 }
 

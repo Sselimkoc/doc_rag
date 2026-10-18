@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.embedding import EMBED_MODEL, embed
-from app.models import Chunk, Document, Embedding
+from app.models import Chunk, Document, Embedding, not_deleted
 from app.schemas import SearchRequest, SearchResult
 
 router = APIRouter(tags=["search"])
@@ -15,7 +15,11 @@ router = APIRouter(tags=["search"])
 def search(session: Session, query: str, k: int = 8, document_ids: list[int] | None = None) -> list[tuple[Chunk, float]]:
     """Soruya en yakın k parçayı kosinüs benzerliğiyle döndürür.
     """
-    statement = select(Embedding.chunk_id, Embedding.vector).where(Embedding.model == EMBED_MODEL)
+    statement = (
+        select(Embedding.chunk_id, Embedding.vector)
+        .join(Document, Document.id == Embedding.document_id)
+        .where(Embedding.model == EMBED_MODEL, not_deleted())
+    )
     if document_ids is not None:
         statement = statement.where(Embedding.document_id.in_(document_ids))
     rows = session.exec(statement).all()

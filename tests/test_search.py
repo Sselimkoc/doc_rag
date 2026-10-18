@@ -47,6 +47,12 @@ def test_search_ignores_vectors_of_other_models(indexed):
     assert 4 not in [c.id for c, _ in search(indexed, "soru", k=10)]
 
 
+def test_search_skips_deleted_documents(indexed):
+    indexed.get(Document, 1).is_deleted = True
+    indexed.commit()
+    assert [c.id for c, _ in search(indexed, "soru", k=3)] == [3]
+
+
 def test_search_without_vectors_returns_empty(session, monkeypatch):
     monkeypatch.setattr(search_module, "embed", lambda texts: pytest.fail("embedding çağrılmamalı"))
     assert search(session, "soru") == []

@@ -11,6 +11,13 @@ class Document(SQLModel, table=True):
     path: str
     status: str = "uploaded"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Silinen belge veritabanında kalır; listede ve aramada görünmez.
+    is_deleted: bool = False
+
+
+def not_deleted():
+    # Sütun sonradan eklendiği için eski satırlarda NULL olabilir.
+    return Document.is_deleted.is_not(True)
 
 
 class Page(SQLModel, table=True):

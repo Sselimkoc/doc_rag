@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
-from app.documents import list_documents
+import pytest
+from fastapi import BackgroundTasks, HTTPException
+
+from app.documents import delete_document, get_document_text, list_documents, reprocess_document
 from app.models import Chunk, Document, Page
 
 SAME_TIME = datetime(2026, 10, 17, tzinfo=timezone.utc)
@@ -43,3 +46,42 @@ def test_ids_returns_only_requested_documents(session):
     add_documents(session, 5)
     assert names(list_documents(limit=None, offset=0, ids=[2, 4, 99], session=session)) == ["belge3", "belge1"]
     assert list_documents(limit=None, offset=0, ids=[], session=session) == []
+
+
+def all_names(session):
+    return names(list_documents(limit=None, offset=0, ids=None, session=session))
+
+
+def status_code(call):
+    with pytest.raises(HTTPException) as e:
+        call()
+    return e.value.status_code
+
+
+def test_deleted_document_stays_in_db_but_is_hidden(session):
+    add_documents(session, 2)
+    session.get(Document, 1).status = "ready"
+    session.commit()
+    delete_document(1, session=session)
+    assert all_names(session) == ["belge1"]
+    assert session.get(Document, 1).is_deleted
+    assert status_code(lambda: get_document_text(1, session=session)) == 404
+    assert status_code(lambda: delete_document(1, session=session)) == 404
+
+
+def test_document_being_processed_cannot_be_deleted_or_reprocessed(session):
+    add_documents(session, 1)
+    session.get(Document, 1).status = "processing"
+    session.commit()
+    assert status_code(lambda: delete_document(1, session=session)) == 409
+    assert status_code(lambda: reprocess_document(1, BackgroundTasks(), session=session)) == 409
+
+
+def test_reprocess_queues_document_again(session):
+    add_documents(session, 1)
+    session.get(Document, 1).status = "failed"
+    session.commit()
+    tasks = BackgroundTasks()
+    reprocess_document(1, tasks, session=session)
+    assert session.get(Document, 1).status == "uploaded" and len(tasks.tasks) == 1
+
