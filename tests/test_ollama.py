@@ -23,3 +23,10 @@ def test_chat_json_treats_truncated_reply_as_empty(monkeypatch):
     # Döngüye girip sınıra çarpan cevap yarım JSON'dur (Vaka 44).
     fake_post(monkeypatch, {"done_reason": "length", "message": {"content": '{"answerable": true, "answer": "[240] [241'}})
     assert ollama.chat_json("sys", "user", {}) == {}
+
+
+def test_chat_json_treats_invalid_json_as_empty(monkeypatch, caplog):
+    # acme-01: model cevabın içine "<source>1</source>" yazıp JSON'u kapatmadan bitirdi (Vaka 64).
+    fake_post(monkeypatch, {"done_reason": "stop", "message": {"content": '{"answerable": true, "answer": "x <source>1</source>}'}})
+    assert ollama.chat_json("sys", "user", {}) == {}
+    assert "geçersiz JSON" in caplog.text

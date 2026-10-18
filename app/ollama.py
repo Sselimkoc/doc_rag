@@ -1,7 +1,10 @@
 import json
+import logging
 import urllib.request
 
 from app.config import LLM_MODEL, OLLAMA_URL
+
+logger = logging.getLogger(__name__)
 
 
 def post(path: str, body: dict, timeout: int = 300) -> dict:
@@ -28,4 +31,9 @@ def chat_json(system: str, user: str, schema: dict) -> dict:
     # Sınıra çarpan (döngüye giren) cevap yarım JSON'dur; boş cevap sayılır.
     if response.get("done_reason") == "length":
         return {}
-    return json.loads(response["message"]["content"])
+    try:
+        return json.loads(response["message"]["content"])
+    except json.JSONDecodeError:
+        # Şemaya rağmen bozuk JSON gelebiliyor; cevap okunamazsa reddedilir.
+        logger.warning("Model geçersiz JSON döndürdü: %.200s", response["message"]["content"])
+        return {}
