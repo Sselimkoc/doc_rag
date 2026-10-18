@@ -135,7 +135,8 @@ Testler geçici bir veri klasörü ve bellekte SQLite kullanır; Ollama çağrı
 
 - Alıntı doğrulaması alıntının belgede birebir geçtiğini kanıtlar, cevabı desteklediğini değil. 14B, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntılayıp "başkent Ankara'dır" diyebildi.
 - Cevap metninin kendisi doğrulanmıyor, sadece alıntılar. Model doğru cümleyi alıntılayıp cevapta farklı bir sayı yazabiliyor (7B: "ikiyüzyetmiş" → 276; 14B bu soruyu doğru cevapladı).
-- Taranmış tablolarda Tesseract metni sütun sütun okuyor; etiket ile değeri birbirinden uzak düşebiliyor.
+- Taranmış sayfalar satır satır okunuyor (Tesseract `--psm 4`): fatura ve formlarda etiket ile değeri aynı satırda kalıyor, ama iki sütunlu taranmış sayfalarda iki sütunun satırları birbirine karışabilir.
+- Eğiklik düzeltme yok. Faturanın eğik kopyalarında okunan 6 satırdan 2°'de 4'ü, 5°'de 2'si, 10°'de hiçbiri kaldı. Düşük kontrast daha az etkiliyor (yazı %10 kontrastta 5/6).
 - Arama yalnızca anlamsal. Kod ve numara gibi kesin terimler için kelime araması (BM25) henüz yok.
 - Yeniden sıralayıcı (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Yeniden sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
 - Kanıt panelinde parça metni gösteriliyor; sayfa görüntüsü üzerinde vurgulama yok.

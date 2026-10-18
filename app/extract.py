@@ -267,4 +267,5 @@ def table_to_markdown(rows: list[list[str | None]]) -> str:
 
 def extract_image_text(image: str | Image.Image) -> str:
     """Resimdeki metni Tesseract ile (Türkçe + İngilizce) okur."""
-    return pytesseract.image_to_string(image, lang="tur+eng")
+    # psm 4 sayfayı tek sütun sayar; varsayılan (psm 3) iki sütunu ayrı bloklar okur.
+    return pytesseract.image_to_string(image, lang="tur+eng", config="--psm 4")
