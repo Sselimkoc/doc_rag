@@ -105,16 +105,16 @@ Sonuçlar (90 soru):
 | Model | Toplam | Cevaplanabilen | Cevaplanamayan | Günlük dil | Medyan süre |
 |---|---|---|---|---|---|
 | qwen2.5:7b-instruct | 56/90 | 43/77 | 13/13 | 4/11 | 21 s |
-| qwen2.5:14b-instruct-q4_K_M | 75/90 | 63/77 | 12/13 | 9/11 | 51 s |
+| qwen2.5:14b-instruct-q4_K_M | 73/90 | 62/77 | 11/13 | 9/11 | 28 s |
 
-14B satırında OCR'lı belgeleri kullanan 7 soru, taranmış sayfaların satır satır okunmasından (`--psm 4`) sonra yeniden ölçüldü (önce 72/90; fatura soruları alıntı doğrulanamadığı için reddediliyordu).
+14B satırı, taranmış sayfaların satır satır okunmasından (`--psm 4`) ve modellerin bellekte tutulmasından (aşağıda, Donanım notu) sonraki ölçüm. Önceki ölçümde 75/90 ve medyan 51 s idi. Farklı çıkan 2 soruda modele giden kaynaklar aynı, cevap modelin durumuna göre değişiyor: kanun-01 model yeni yüklendiğinde doğru ("iki ay"), bellekte kalmışken yanlış ("dört ay"); erasmus-02 yeniden sorulunca doğru reddediliyor. 7B satırı eski düzende ölçüldü.
 
-14B'nin kalan 15 hatası:
+14B'nin 17 hatası:
 
 - **Arama (9):** cevabı içeren parça ilk 6'ya girmiyor. 4'ünde aynı sayfanın başka bir parçası geliyor; sayfa doğru, cevap cümlesi gelmeyen parçada.
 - **OCR (1):** faturadaki "%20" "9020" okunuyor; model oranı kendisi hesaplayıp "%27" yazıyor.
-- **Üretim (4):** cevap cümlesi modele verilen parçada olduğu halde yanlış ya da eksik cevap. İkisi aynı cümleden: "1939'da … 1937'de … He 178 ile bir deneme uçuşu yaptılar"; model 1937'yi seçiyor.
-- **Uydurma (1):** "Türkiye'nin başkenti neresidir?" sorusuna "Ankara" cevabı. Model, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntıladı (aşağıda, Bilinen sınırlamalar).
+- **Üretim (5):** cevap cümlesi modele verilen parçada olduğu halde yanlış ya da eksik cevap. Biri kanun-01 ("en çok iki ay … toplu iş sözleşmeleriyle dört aya kadar" → "dört ay"). İkisi aynı cümleden: "1939'da … 1937'de … He 178 ile bir deneme uçuşu yaptılar"; model 1937'yi seçiyor.
+- **Uydurma (2):** "Türkiye'nin başkenti neresidir?" sorusuna "Ankara" cevabı. Model, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntıladı (aşağıda, Bilinen sınırlamalar). Erasmus formunda boş kimlik numarası alanı ("T.C. Kimlik Numarası: >") cevap olarak alıntılandı.
 
 ## Donanım notu
 
@@ -123,7 +123,9 @@ Sonuçlar (90 soru):
 | Model | Ekran kartında | Soru başına |
 |---|---|---|
 | qwen2.5:7b-instruct (5,4 GB) | ~%40 | 20–36 s |
-| qwen2.5:14b-instruct-q4_K_M (10 GB) | ~%21 | medyan 51 s, en uzun 119 s |
+| qwen2.5:14b-instruct-q4_K_M (10 GB) | ~%21 | medyan 28 s, en uzun 65 s |
+
+İki model ekran kartına birlikte sığmadığı için Ollama her soruda birini atıp diğerini yeniden yüklüyordu (~13 s). bge-m3 CPU'da çalışıyor (bu makinede ekran kartından yavaş değil), iki model de backend açılırken yüklenip 10 dakika bellekte tutuluyor. 90 soru 73 dakikadan 40 dakikaya indi. 8 GB ve üstü ekran kartında iki model birlikte sığar; orada embedding'i ekran kartında çalıştırmak (`app/embedding.py`, `num_gpu`) daha hızlı olabilir.
 
 Varsayılan model 14B, çünkü 7B uzun bağlamda kaynak metni tekrar tekrar kopyalayan bir döngüye giriyor ve cevap çıktı sınırında kesiliyor. Hız gerekiyorsa `.env` dosyasında `LLM_MODEL=qwen2.5:7b-instruct` seçilebilir. 8 GB ve üstü ekran kartında 14B tamamen ekran kartına sığar.
 

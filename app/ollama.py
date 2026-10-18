@@ -6,6 +6,11 @@ from app.config import LLM_MODEL, OLLAMA_URL
 
 logger = logging.getLogger(__name__)
 
+# Ollama boşta kalan modeli bu süre sonra bellekten atar (varsayılan 5 dk).
+KEEP_ALIVE = "10m"
+# Yükleme de aynı ayarlarla yapılmalı; num_ctx farklıysa model ilk soruda yeniden yüklenir.
+CHAT_OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 512}
+
 
 def post(path: str, body: dict, timeout: int = 300) -> dict:
     request = urllib.request.Request(
@@ -25,7 +30,8 @@ def chat_json(system: str, user: str, schema: dict) -> dict:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "format": schema,
             "stream": False,
-            "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 512}, #aynı girdiye aynı yanıtı almak için 
+            "options": CHAT_OPTIONS,
+            "keep_alive": KEEP_ALIVE,
         },
     )
     # Sınıra çarpan (döngüye giren) cevap yarım JSON'dur; boş cevap sayılır.
@@ -37,3 +43,8 @@ def chat_json(system: str, user: str, schema: dict) -> dict:
         # Şemaya rağmen bozuk JSON gelebiliyor; cevap okunamazsa reddedilir.
         logger.warning("Model geçersiz JSON döndürdü: %.200s", response["message"]["content"])
         return {}
+
+
+def load_llm() -> None:
+    """Modeli soru beklemeden belleğe yükler; boş mesaj listesi yalnızca yükleme yapar."""
+    post("/api/chat", {"model": LLM_MODEL, "messages": [], "options": CHAT_OPTIONS, "keep_alive": KEEP_ALIVE})
