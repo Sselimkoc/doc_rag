@@ -479,7 +479,6 @@ function App() {
                 >
                   {t.backToChat}
                 </button>
-                <span className="detail-bar-name">{selected.filename}</span>
               </div>
               <div className="scroll">
                 <section className="detail">

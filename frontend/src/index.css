@@ -384,15 +384,6 @@ button {
   font-size: 13px;
 }
 
-.detail-bar-name {
-  min-width: 0;
-  margin-left: auto;
-  overflow: hidden;
-  color: var(--muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .detail-view .scroll {
   flex: 1;
   min-height: 0;
