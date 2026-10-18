@@ -7,7 +7,7 @@ PDF, JPG ve PNG belgeler üzerinde Türkçe ve İngilizce soru cevaplayan, tamam
 - **Metin çıkarma:** metin katmanlı PDF'ler pypdfium2 ile okunur, tablolar pdfplumber ile bulunup Markdown'a çevrilir. Metin katmanı olmayan sayfalar (taranmış PDF) ve resimler Tesseract (`tur+eng`) ile OCR'dan geçer. PDF içine gömülü resimlerdeki yazılar da okunur.
 - **Parçalama:** başlıklar (PDF yer imleri ya da yazı tipi) ve paragraflar korunur. Tablolar bölünmez; büyük tablolarda her parçada başlık satırı tekrarlanır.
 - **Arama:** bge-m3 embedding'leri, numpy ile tam (yaklaşık olmayan) kosinüs araması. Arama belgelere göre filtrelenebilir.
-- **Cevap:** en yakın 6 parça numaralandırılıp modele verilir. Model JSON şemasına uymaya zorlanır (`answerable`, `answer`, `citations[{source, quote}]`).
+- **Cevap:** en yakın 6 parça numaralandırılıp modele verilir. İlk 3 parçaya aynı sayfadaki önceki ve sonraki parça eklenir; cevap cümlesi bazen sayfanın gelmeyen parçasında kalıyor. Model JSON şemasına uymaya zorlanır (`answerable`, `answer`, `citations[{source, quote}]`).
 - **Doğrulama:** her alıntı, gösterdiği kaynak parçada birebir aranır (büyük/küçük harf, tırnak, boşluk ve Unicode biçimi eşitlenerek). Doğrulanamayan alıntı atılır; hiç alıntı kalmazsa cevap reddedilir.
 
 Ret nedenleri ayrı kodlarla döner:
@@ -26,7 +26,7 @@ Skor eşiği (0,44) bge-m3 için değerlendirme setinde ölçülerek seçildi. B
 Belge ─► metin çıkarma (pypdfium2 / pdfplumber / Tesseract)
       ─► parçalama ─► bge-m3 embedding ─► SQLite (belge, sayfa, parça, vektör)
 
-Soru ─► bge-m3 ─► kosinüs araması (ilk 6) ─► skor eşiği
+Soru ─► bge-m3 ─► kosinüs araması (ilk 6) ─► skor eşiği ─► komşu parçalar
      ─► qwen2.5 (JSON şeması) ─► alıntı doğrulama ─► cevap + kaynaklar
 ```
 
@@ -107,13 +107,13 @@ Sonuçlar (90 soru):
 | Model | Toplam | Cevaplanabilen | Cevaplanamayan | Günlük dil | Medyan süre |
 |---|---|---|---|---|---|
 | qwen2.5:7b-instruct | 56/90 | 43/77 | 13/13 | 4/11 | 21 s |
-| qwen2.5:14b-instruct-q4_K_M | 73/90 | 62/77 | 11/13 | 9/11 | 28 s |
+| qwen2.5:14b-instruct-q4_K_M | 76/90 | 65/77 | 11/13 | 10/11 | 32 s |
 
-14B satırı, taranmış sayfaların satır satır okunmasından (`--psm 4`) ve modellerin bellekte tutulmasından (aşağıda, Donanım notu) sonraki ölçüm. Önceki ölçümde 75/90 ve medyan 51 s idi. Farklı çıkan 2 soruda modele giden kaynaklar aynı, cevap modelin durumuna göre değişiyor: kanun-01 model yeni yüklendiğinde doğru ("iki ay"), bellekte kalmışken yanlış ("dört ay"); erasmus-02 yeniden sorulunca doğru reddediliyor. 7B satırı eski düzende ölçüldü.
+14B satırı, taranmış sayfaların satır satır okunmasından (`--psm 4`) ve modellerin bellekte tutulmasından (aşağıda, Donanım notu) sonraki ölçüm. Önceki ölçümde 75/90 ve medyan 51 s idi. Farklı çıkan 2 soruda modele giden kaynaklar aynı, cevap modelin durumuna göre değişiyor: kanun-01 model yeni yüklendiğinde doğru ("iki ay"), bellekte kalmışken yanlış ("dört ay"); erasmus-02 yeniden sorulunca doğru reddediliyor. Komşu parçaların eklenmesi 73/90'ı 76/90'a çıkardı (kanun-02, kvkk-01, informal-01 düzeldi, bozulan soru yok); medyan süre 28 s'den 32 s'ye çıktı. 7B satırı eski düzende ölçüldü.
 
-14B'nin 17 hatası:
+14B'nin 14 hatası:
 
-- **Arama (9):** cevabı içeren parça ilk 6'ya girmiyor. 4'ünde aynı sayfanın başka bir parçası geliyor; sayfa doğru, cevap cümlesi gelmeyen parçada.
+- **Arama (6):** cevabı içeren parça modele giden kaynaklarda yok. İkisinde cevap cümlesi aynı sayfanın komşu parçasında, ama o sayfanın parçası ilk 3'ün dışında kaldığı için komşusu eklenmiyor.
 - **OCR (1):** faturadaki "%20" "9020" okunuyor; model oranı kendisi hesaplayıp "%27" yazıyor.
 - **Üretim (5):** cevap cümlesi modele verilen parçada olduğu halde yanlış ya da eksik cevap. Biri kanun-01 ("en çok iki ay … toplu iş sözleşmeleriyle dört aya kadar" → "dört ay"). İkisi aynı cümleden: "1939'da … 1937'de … He 178 ile bir deneme uçuşu yaptılar"; model 1937'yi seçiyor.
 - **Uydurma (2):** "Türkiye'nin başkenti neresidir?" sorusuna "Ankara" cevabı. Model, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntıladı (aşağıda, Bilinen sınırlamalar). Erasmus formunda boş kimlik numarası alanı ("T.C. Kimlik Numarası: >") cevap olarak alıntılandı.
@@ -125,7 +125,7 @@ Sonuçlar (90 soru):
 | Model | Ekran kartında | Soru başına |
 |---|---|---|
 | qwen2.5:7b-instruct (5,4 GB) | ~%40 | 20–36 s |
-| qwen2.5:14b-instruct-q4_K_M (10 GB) | ~%21 | medyan 28 s, en uzun 65 s |
+| qwen2.5:14b-instruct-q4_K_M (10 GB) | ~%21 | medyan 32 s, en uzun 114 s |
 
 İki model ekran kartına birlikte sığmadığı için Ollama her soruda birini atıp diğerini yeniden yüklüyordu (~13 s). bge-m3 CPU'da çalışıyor (bu makinede ekran kartından yavaş değil), iki model de backend açılırken yüklenip 10 dakika bellekte tutuluyor. 90 soru 73 dakikadan 40 dakikaya indi. 8 GB ve üstü ekran kartında iki model birlikte sığar; orada embedding'i ekran kartında çalıştırmak (`app/embedding.py`, `num_gpu`) daha hızlı olabilir.
 

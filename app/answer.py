@@ -8,11 +8,13 @@ from sqlmodel import Session
 from app.db import get_session
 from app.ollama import chat_json
 from app.schemas import AnswerRequest, AnswerResponse, Citation, SearchResult
-from app.search import search, to_results
+from app.search import search, to_results, with_neighbors
 
 router = APIRouter(tags=["answer"])
 
 TOP_K = 6
+# İlk bu kadar parçaya aynı sayfadaki komşuları eklenir.
+NEIGHBOR_TOP = 3
 # Değerlendirme setinde konu dışı soru 0,39, cevaplanabilen soruların en düşük ilk skoru 0,48.
 MIN_SCORE = 0.44
 
@@ -81,7 +83,7 @@ def build_prompt(question: str, sources: list[SearchResult]) -> str:
 
 
 def answer_question(session: Session, question: str, document_ids: list[int] | None = None) -> AnswerResponse:
-    sources = to_results(session, search(session, question, TOP_K, document_ids))
+    sources = with_neighbors(session, to_results(session, search(session, question, TOP_K, document_ids)), NEIGHBOR_TOP)
 
     def refuse(reason: str, unverified: int = 0) -> AnswerResponse:
         return AnswerResponse(

@@ -4,7 +4,7 @@ import pytest
 from app import search as search_module
 from app.embedding import EMBED_MODEL
 from app.models import Chunk, Document, Embedding
-from app.search import search, to_results
+from app.search import search, to_results, with_neighbors
 
 
 def unit(*values):
@@ -61,3 +61,35 @@ def test_search_without_vectors_returns_empty(session, monkeypatch):
 def test_to_results_adds_filenames(indexed):
     results = to_results(indexed, search(indexed, "soru", k=3))
     assert [(r.filename, r.page) for r in results] == [("a.pdf", 1), ("a.pdf", 2), ("b.pdf", 3)]
+
+
+@pytest.fixture
+def page_chunks(session):
+    """a.pdf: 1. sayfada 0-3. parçalar, 2. sayfada 4. parça."""
+    session.add(Document(id=1, filename="a.pdf", content_type="application/pdf", size=1, path="a.pdf", status="ready"))
+    for position in range(5):
+        session.add(Chunk(id=position + 1, document_id=1, page=1 if position < 4 else 2, position=position,
+                          text=f"p{position}", kind="text", source="text"))
+    session.commit()
+    return session
+
+
+def ranked(session, *ids):
+    return to_results(session, [(session.get(Chunk, i), 1.0 - k / 10) for k, i in enumerate(ids)])
+
+
+def test_neighbors_are_joined_in_page_order(page_chunks):
+    # kanun-02: cevap cümlesi 1. sıradaki parçanın komşusundaydı (Vaka 58).
+    sources = with_neighbors(page_chunks, ranked(page_chunks, 2), top=3)
+    assert [s.text for s in sources] == ["p0\np1\np2"]
+    assert (sources[0].chunk_id, sources[0].page) == (2, 1)
+
+
+def test_neighbors_stay_on_the_same_page(page_chunks):
+    assert with_neighbors(page_chunks, ranked(page_chunks, 4), top=3)[0].text == "p2\np3"
+
+
+def test_neighbors_are_added_only_to_top_sources_and_not_repeated(page_chunks):
+    sources = with_neighbors(page_chunks, ranked(page_chunks, 1, 3, 4), top=2)
+    # 1'in komşusu 2; 3'ün komşusu 2 zaten alındı, 4 zaten ayrı bir kaynak; 4 ilk 2'de değil.
+    assert [s.text for s in sources] == ["p0\np1", "p2", "p3"]

@@ -21,6 +21,7 @@ def pipeline(monkeypatch):
     def setup(sources, reply):
         monkeypatch.setattr(answer, "search", lambda *args, **kwargs: [])
         monkeypatch.setattr(answer, "to_results", lambda session, results: sources)
+        monkeypatch.setattr(answer, "with_neighbors", lambda session, results, top: results)
         monkeypatch.setattr(answer, "chat_json", lambda system, user, schema: calls.append(user) or reply)
         return calls
 

@@ -52,3 +52,26 @@ def to_results(session: Session, results: list[tuple[Chunk, float]]) -> list[Sea
         )
         for c, score in results
     ]
+
+
+def with_neighbors(session: Session, sources: list[SearchResult], top: int) -> list[SearchResult]:
+    """İlk `top` parçaya aynı sayfadaki önceki ve sonraki parçayı ekler.
+    Cevap cümlesi bazen sayfanın gelmeyen parçasında kalıyor (TESTING Vaka 58)."""
+    taken = {s.chunk_id for s in sources}
+    widened = []
+    for rank, source in enumerate(sources):
+        if rank < top:
+            chunk = session.get(Chunk, source.chunk_id)
+            # Sayfa dışına taşmaz: alıntının gösterdiği sayfa doğru kalsın.
+            neighbors = session.exec(
+                select(Chunk).where(
+                    Chunk.document_id == chunk.document_id,
+                    Chunk.page == chunk.page,
+                    Chunk.position.in_([chunk.position - 1, chunk.position + 1]),
+                )
+            ).all()
+            parts = sorted([chunk] + [n for n in neighbors if n.id not in taken], key=lambda c: c.position)
+            taken.update(c.id for c in parts)
+            source = source.model_copy(update={"text": "\n".join(c.text for c in parts)})
+        widened.append(source)
+    return widened
