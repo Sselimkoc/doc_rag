@@ -18,6 +18,12 @@ ALLOWED_TYPES = {
     "image/png": ".png",
 }
 PENDING = ("uploaded", "processing")
+MAX_UPLOAD_MB = 50
+SIGNATURES = {
+    "application/pdf": lambda head: b"%PDF-" in head[:1024],
+    "image/jpeg": lambda head: head.startswith(b"\xff\xd8\xff"),
+    "image/png": lambda head: head.startswith(b"\x89PNG\r\n\x1a\n"),
+}
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -30,7 +36,12 @@ async def upload_document(
     if suffix is None:
         raise HTTPException(415, "Sadece PDF, JPG ve PNG desteklenir.")
 
-    content = await file.read()
+    # Sınırın bir bayt fazlası okunur; tüm dosya belleğe alınmadan büyük olduğu anlaşılır.
+    content = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(413, f"Dosya {MAX_UPLOAD_MB} MB'tan büyük olamaz.")
+    if not SIGNATURES[file.content_type](content):
+        raise HTTPException(415, "Dosya içeriği PDF, JPG ya da PNG değil.")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     path = UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
     path.write_bytes(content)

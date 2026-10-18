@@ -1,9 +1,14 @@
+import asyncio
+import io
 from datetime import datetime, timezone
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks, HTTPException, UploadFile
+from starlette.datastructures import Headers
 
-from app.documents import delete_document, get_document_text, list_documents, reprocess_document
+from app import documents
+
+from app.documents import delete_document, upload_document, get_document_text, list_documents, reprocess_document
 from app.models import Chunk, Document, Page
 
 SAME_TIME = datetime(2026, 10, 17, tzinfo=timezone.utc)
@@ -85,3 +90,21 @@ def test_reprocess_queues_document_again(session):
     reprocess_document(1, tasks, session=session)
     assert session.get(Document, 1).status == "uploaded" and len(tasks.tasks) == 1
 
+
+
+def upload(session, content, content_type="application/pdf"):
+    file = UploadFile(io.BytesIO(content), filename="belge", headers=Headers({"content-type": content_type}))
+    return asyncio.run(upload_document(file, BackgroundTasks(), session=session))
+
+
+def test_upload_rejects_content_that_does_not_match_its_type(session):
+    # .pdf adı verilmiş başka bir dosya işlenmeden reddedilir.
+    assert status_code(lambda: upload(session, b"MZ, Windows program")) == 415
+    assert status_code(lambda: upload(session, b"%PDF-1.7 ...", "image/png")) == 415
+    assert upload(session, b"%PDF-1.7 ...").status == "uploaded"
+
+
+def test_upload_rejects_files_over_the_size_limit(session, monkeypatch):
+    monkeypatch.setattr(documents, "MAX_UPLOAD_MB", 1)
+    assert status_code(lambda: upload(session, b"%PDF-" + b"0" * (1024 * 1024))) == 413
+    assert upload(session, b"%PDF-" + b"0" * 1000).status == "uploaded"

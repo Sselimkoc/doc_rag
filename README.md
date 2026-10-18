@@ -77,7 +77,7 @@ Yüklenen belgeler ve veritabanı `data/` klasöründe tutulur. Açılışta yar
 
 | Uç nokta | Açıklama |
 |---|---|
-| `POST /documents` | Belge yükleme (PDF, JPG, PNG); işleme arka planda |
+| `POST /documents` | Belge yükleme (PDF, JPG, PNG; en fazla 50 MB, ilk baytları türüne uymalı); işleme arka planda |
 | `GET /documents` | Belgeler ve işleme durumları |
 | `GET /documents/{id}/file` | Orijinal dosya |
 | `GET /documents/{id}/text` | Sayfa sayfa çıkarılan metin (metin katmanı mı OCR mı) |

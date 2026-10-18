@@ -25,7 +25,7 @@ export async function uploadDocument(file: File): Promise<Document> {
   const body = new FormData()
   body.append('file', file)
   const res = await fetch('/documents', { method: 'POST', body })
-  if (!res.ok) throw new Error(res.status === 415 ? 'unsupported' : 'upload')
+  if (!res.ok) throw new Error(res.status === 415 ? 'unsupported' : res.status === 413 ? 'tooLarge' : 'upload')
   return res.json()
 }
 
