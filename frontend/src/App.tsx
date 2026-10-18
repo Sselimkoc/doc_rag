@@ -467,54 +467,60 @@ function App() {
 
         <main className="main">
           {selected ? (
-            <div className="scroll">
-              <button
-                className="link back"
-                onClick={() => {
-                  stickToBottom.current = true
-                  setSelectedId(null)
-                }}
-              >
-                {t.backToChat}
-              </button>
-              <section className="detail">
-                <div>
-                  <h2>{selected.filename}</h2>
-                  <p className="sub">
-                    {formatSize(selected.size)} ·{' '}
-                    {new Date(selected.created_at).toLocaleString(t.locale)}
-                  </p>
-                </div>
+            <div className="detail-view">
+              {/* Kaydırılan alanın dışında; uzun belgede de görünür kalır. */}
+              <div className="detail-bar">
+                <button
+                  className="link"
+                  onClick={() => {
+                    stickToBottom.current = true
+                    setSelectedId(null)
+                  }}
+                >
+                  {t.backToChat}
+                </button>
+                <span className="detail-bar-name">{selected.filename}</span>
+              </div>
+              <div className="scroll">
+                <section className="detail">
+                  <div>
+                    <h2>{selected.filename}</h2>
+                    <p className="sub">
+                      {formatSize(selected.size)} ·{' '}
+                      {new Date(selected.created_at).toLocaleString(t.locale)}
+                    </p>
+                  </div>
 
-                {selected.content_type === 'application/pdf' ? (
-                  <iframe
-                    className="preview"
-                    src={documentFileUrl(selected.id)}
-                    title={selected.filename}
-                  />
-                ) : (
-                  <img className="preview" src={documentFileUrl(selected.id)} alt={selected.filename} />
-                )}
+                  {selected.content_type === 'application/pdf' ? (
+                    <iframe
+                      className="preview"
+                      src={documentFileUrl(selected.id)}
+                      title={selected.filename}
+                    />
+                  ) : (
+                    <img className="preview" src={documentFileUrl(selected.id)} alt={selected.filename} />
+                  )}
 
-                <h3 className="section-title">{t.extractedText}</h3>
-                {isPending(selected) && <p className="sub">{t.extracting}</p>}
-                {selected.status === 'failed' && (
-                  <p className="alert" role="alert">
-                    {t.failedDetail}
-                  </p>
-                )}
-                {textError && (
-                  <p className="alert" role="alert">
-                    {errorText(textError)}
-                  </p>
-                )}
-                {pages?.map((p) => (
-                  <article key={p.page} className="page">
-                    <h4 className="page-head">{t.pageHead(p.page, p.text.length)}</h4>
-                    <p className="page-text">{p.text || t.emptyPage}</p>
-                  </article>
-                ))}
-              </section>
+                  <h3 className="section-title">{t.extractedText}</h3>
+                  {isPending(selected) && <p className="sub">{t.extracting}</p>}
+                  {selected.status === 'failed' && (
+                    <p className="alert" role="alert">
+                      {t.failedDetail}
+                    </p>
+                  )}
+                  {textError && (
+                    <p className="alert" role="alert">
+                      {errorText(textError)}
+                    </p>
+                  )}
+                  {pages?.map((p) => (
+                    <article key={p.page} className="page">
+                      <h4 className="page-head">{t.pageHead(p.page, p.text.length)}</h4>
+                      <p className="page-text">{p.text || t.emptyPage}</p>
+                    </article>
+                  ))}
+                </section>
+              </div>
             </div>
           ) : (
             <div className="chat">
