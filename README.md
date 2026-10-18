@@ -81,6 +81,8 @@ Yüklenen belgeler ve veritabanı `data/` klasöründe tutulur. Açılışta yar
 | `GET /documents` | Belgeler ve işleme durumları |
 | `GET /documents/{id}/file` | Orijinal dosya |
 | `GET /documents/{id}/text` | Sayfa sayfa çıkarılan metin (metin katmanı mı OCR mı) |
+| `DELETE /documents/{id}` | Belgeyi siler: listeden ve aramadan kalkar, veritabanında `is_deleted` ile kalır |
+| `POST /documents/{id}/reprocess` | Belgeyi yeniden işler (ör. işlenemeyen belge) |
 | `POST /search` | Anlamsal arama, isteğe bağlı belge filtresi |
 | `POST /answer` | Doğrulanmış alıntılarla cevap ya da ret kodu |
 
@@ -103,12 +105,14 @@ Sonuçlar (90 soru):
 | Model | Toplam | Cevaplanabilen | Cevaplanamayan | Günlük dil | Medyan süre |
 |---|---|---|---|---|---|
 | qwen2.5:7b-instruct | 56/90 | 43/77 | 13/13 | 4/11 | 21 s |
-| qwen2.5:14b-instruct-q4_K_M | 72/90 | 60/77 | 12/13 | 8/11 | 51 s |
+| qwen2.5:14b-instruct-q4_K_M | 75/90 | 63/77 | 12/13 | 9/11 | 51 s |
 
-14B'nin kalan 18 hatası:
+14B satırında OCR'lı belgeleri kullanan 7 soru, taranmış sayfaların satır satır okunmasından (`--psm 4`) sonra yeniden ölçüldü (önce 72/90; fatura soruları alıntı doğrulanamadığı için reddediliyordu).
+
+14B'nin kalan 15 hatası:
 
 - **Arama (9):** cevabı içeren parça ilk 6'ya girmiyor. 4'ünde aynı sayfanın başka bir parçası geliyor; sayfa doğru, cevap cümlesi gelmeyen parçada.
-- **OCR (4):** taranmış fatura ve tutanakta bozuk okuma.
+- **OCR (1):** faturadaki "%20" "9020" okunuyor; model oranı kendisi hesaplayıp "%27" yazıyor.
 - **Üretim (4):** cevap cümlesi modele verilen parçada olduğu halde yanlış ya da eksik cevap. İkisi aynı cümleden: "1939'da … 1937'de … He 178 ile bir deneme uçuşu yaptılar"; model 1937'yi seçiyor.
 - **Uydurma (1):** "Türkiye'nin başkenti neresidir?" sorusuna "Ankara" cevabı. Model, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntıladı (aşağıda, Bilinen sınırlamalar).
 
@@ -139,7 +143,7 @@ Testler geçici bir veri klasörü ve bellekte SQLite kullanır; Ollama çağrı
 - Eğiklik düzeltme yok. Faturanın eğik kopyalarında okunan 6 satırdan 2°'de 4'ü, 5°'de 2'si, 10°'de hiçbiri kaldı. Düşük kontrast daha az etkiliyor (yazı %10 kontrastta 5/6).
 - Arama yalnızca anlamsal. Kod ve numara gibi kesin terimler için kelime araması (BM25) henüz yok.
 - Yeniden sıralayıcı (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Yeniden sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
-- Kanıt panelinde parça metni gösteriliyor; sayfa görüntüsü üzerinde vurgulama yok.
+- Kanıt panelinde parça metni gösteriliyor ve kaynak sayfa PDF görüntüleyicide açılabiliyor; sayfa görüntüsü üzerinde vurgulama yok.
 - Cevap model bitirince bir kerede geliyor (akış yok); 14B'de bu 30-120 s bekleme demek.
 
 ## Klasörler
