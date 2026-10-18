@@ -32,7 +32,9 @@ Soru ─► bge-m3 ─► kosinüs araması (ilk 6) ─► skor eşiği
 
 - Backend: FastAPI, SQLModel/SQLite. Vektörler aynı SQLite dosyasında. Vektör veritabanı kullanılmadı: bu ölçekte tek bir numpy matrisi hem yeterli hem daha hızlı.
 - Model çağrıları: Ollama (yerel). Hiçbir veri dışarı gönderilmez.
-- Arayüz: React 19 + Vite. Solda belgeler (yükleme, sürükle-bırak, aranacak belgeleri seçme), ortada soru-cevap, sağda alıntının parça içinde vurgulandığı kanıt paneli.
+- Arayüz: React 19 + Vite. Solda belgeler, ortada soru-cevap, sağda kanıt paneli.
+  - Belgeler: çoklu yükleme ve sürükle-bırak, adla filtre, aranacak belgeleri işaretleme (tümünü işaretle / kaldır), işleme durumu ve OCR'lı sayfa sayısı. Her belgenin ⋯ menüsünde görüntüle (orijinal dosya ve çıkarılan metin), yeniden işle, sil.
+  - Kanıt paneli: cevaptaki kaynak numarasına tıklanınca parça metni açılır ve alıntı vurgulanır; "Sayfayı aç" PDF'i alıntının sayfasında açar.
 
 ## Kurulum
 
