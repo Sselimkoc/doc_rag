@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Answer } from './api'
+import { documentFileUrl, type Answer } from './api'
 import type { Messages } from './i18n'
 
 export type Turn = {
@@ -145,6 +145,15 @@ export function Evidence({ turn, index, t }: { turn: Turn | null; index: number 
         {citation && (
           <span className="ev-where">
             {citation.filename}, {t.pageShort} <span className="num">{citation.page}</span>
+            {' · '}
+            <a
+              className="link"
+              href={`${documentFileUrl(citation.document_id)}#page=${citation.page}`}
+              target="_blank"
+              rel="noopener"
+            >
+              {t.openPage}
+            </a>
           </span>
         )}
       </div>

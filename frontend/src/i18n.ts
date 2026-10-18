@@ -28,6 +28,7 @@ const tr = {
   writing: (s: number) => `Cevap yazılıyor… ${s} s (yerel model, bir dakika sürebilir)`,
   sourceN: (n: number) => `Kaynak ${n}`,
   pageShort: 's.',
+  openPage: 'Sayfayı aç',
   verified: 'Alıntı belgede birebir bulundu',
   someUnverified: (n: number) => `${n} alıntı belgede bulunamadı, gösterilmedi`,
   refusals: {
@@ -93,6 +94,7 @@ const en: typeof tr = {
   writing: (s) => `Writing the answer… ${s} s (local model, may take a minute)`,
   sourceN: (n) => `Source ${n}`,
   pageShort: 'p.',
+  openPage: 'Open page',
   verified: 'Quote found verbatim in the document',
   someUnverified: (n) => `${n} ${n === 1 ? 'quote was' : 'quotes were'} not found in the document and are hidden`,
   refusals: {
