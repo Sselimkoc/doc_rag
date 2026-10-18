@@ -176,6 +176,10 @@ button {
   cursor: pointer;
 }
 
+.doc input:disabled + .doc-name {
+  cursor: default;
+}
+
 .doc-menu {
   position: relative;
 }

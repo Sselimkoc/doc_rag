@@ -76,15 +76,17 @@ function DocItem({
   return (
     <li className={selected ? 'doc selected' : 'doc'}>
       <input
+        id={`doc-${doc.id}`}
         type="checkbox"
         checked={checked}
         disabled={doc.status !== 'ready'}
         onChange={onCheck}
         aria-label={t.includeInSearch(doc.filename)}
       />
-      <button className="doc-name" onClick={onSelect} aria-pressed={selected}>
+      {/* Ada tıklamak aramaya dahil etmeyi değiştirir; görüntüleme ⋯ menüsünde. */}
+      <label className="doc-name" htmlFor={`doc-${doc.id}`}>
         {doc.filename}
-      </button>
+      </label>
       <div className="doc-menu" ref={menuRef}>
         <button
           className="more"
