@@ -107,9 +107,9 @@ Sonuçlar (90 soru):
 
 14B'nin kalan 18 hatası:
 
-- **Arama (5):** cevabı içeren parça ilk 6'ya girmiyor.
+- **Arama (9):** cevabı içeren parça ilk 6'ya girmiyor. 4'ünde aynı sayfanın başka bir parçası geliyor; sayfa doğru, cevap cümlesi gelmeyen parçada.
 - **OCR (4):** taranmış fatura ve tutanakta bozuk okuma.
-- **Üretim (8):** kanıt bağlamda olduğu halde yanlış ya da eksik cevap.
+- **Üretim (4):** cevap cümlesi modele verilen parçada olduğu halde yanlış ya da eksik cevap. İkisi aynı cümleden: "1939'da … 1937'de … He 178 ile bir deneme uçuşu yaptılar"; model 1937'yi seçiyor.
 - **Uydurma (1):** "Türkiye'nin başkenti neresidir?" sorusuna "Ankara" cevabı. Model, Ankara'nın yalnızca adının geçtiği bir cümleyi alıntıladı (aşağıda, Bilinen sınırlamalar).
 
 ## Donanım notu
