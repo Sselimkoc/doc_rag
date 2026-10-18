@@ -111,6 +111,9 @@ function App() {
   const shown = query
     ? documents.filter((d) => d.filename.toLocaleLowerCase(t.locale).includes(query))
     : documents
+  // Filtre varsa toplu işaretleme yalnızca görünen hazır belgelere uygulanır.
+  const shownReady = shown.filter((d) => d.status === 'ready')
+  const allShownChecked = shownReady.every((d) => !excluded.has(d.id))
 
   useEffect(() => {
     document.documentElement.lang = lang
@@ -122,7 +125,8 @@ function App() {
     let cancelled = false
     async function load() {
       let offset = 0
-      let limit = Math.ceil(window.innerHeight / 50)
+      // Pencere gizliyken innerHeight 0 olabilir.
+      let limit = Math.max(1, Math.ceil(window.innerHeight / 50))
       try {
         for (;;) {
           const start = offset
@@ -231,6 +235,17 @@ function App() {
     })
   }
 
+  function toggleAll() {
+    setExcluded((prev) => {
+      const next = new Set(prev)
+      for (const d of shownReady) {
+        if (allShownChecked) next.add(d.id)
+        else next.delete(d.id)
+      }
+      return next
+    })
+  }
+
   // Dosyalar sırayla yüklenir; biri başarısız olursa diğerleri devam eder.
   async function uploadFiles(files: File[]) {
     if (files.length === 0 || uploading) return
@@ -292,8 +307,15 @@ function App() {
         >
           <div className="sidebar-head">
             <span>{t.searchable}</span>
-            <span className="count">
-              {searchable.length} / {ready.length}
+            <span className="head-actions">
+              {shownReady.length > 0 && (
+                <button className="link" onClick={toggleAll}>
+                  {allShownChecked ? t.uncheckAll : t.checkAll}
+                </button>
+              )}
+              <span className="count">
+                {searchable.length} / {ready.length}
+              </span>
             </span>
           </div>
 

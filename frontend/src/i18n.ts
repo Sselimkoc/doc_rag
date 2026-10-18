@@ -3,6 +3,8 @@ export type Lang = 'tr' | 'en'
 const tr = {
   locale: 'tr-TR',
   searchable: 'Aranacak belgeler',
+  checkAll: 'Tümünü işaretle',
+  uncheckAll: 'Tümünü kaldır',
   noDocuments: 'Henüz belge yok.',
   loadingDocuments: 'Belgeler yükleniyor…',
   loadingMore: 'Diğer belgeler yükleniyor…',
@@ -69,6 +71,8 @@ const tr = {
 const en: typeof tr = {
   locale: 'en-GB',
   searchable: 'Documents to search',
+  checkAll: 'Check all',
+  uncheckAll: 'Uncheck all',
   noDocuments: 'No documents yet.',
   loadingDocuments: 'Loading documents…',
   loadingMore: 'Loading more documents…',

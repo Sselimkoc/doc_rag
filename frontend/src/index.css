@@ -129,6 +129,15 @@ button {
   font-weight: 500;
 }
 
+.head-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.head-actions .link {
+  font-size: 12px;
+}
+
 .sidebar-head .count {
   font-family: var(--mono);
 }
