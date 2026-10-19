@@ -21,11 +21,15 @@ export async function listDocuments(
   return res.json()
 }
 
+// Uzantısı uygun ama içeriği tutmayan dosya (ör. adı .pdf yapılmış metin dosyası) ayrı mesaj alır.
+const ALLOWED_NAME = /\.(pdf|jpe?g|png)$/i
+
 export async function uploadDocument(file: File): Promise<Document> {
   const body = new FormData()
   body.append('file', file)
   const res = await fetch('/documents', { method: 'POST', body })
-  if (!res.ok) throw new Error(res.status === 415 ? 'unsupported' : res.status === 413 ? 'tooLarge' : 'upload')
+  if (res.status === 415) throw new Error(ALLOWED_NAME.test(file.name) ? 'badContent' : 'unsupported')
+  if (!res.ok) throw new Error(res.status === 413 ? 'tooLarge' : 'upload')
   return res.json()
 }
 
