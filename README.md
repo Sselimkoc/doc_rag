@@ -46,7 +46,7 @@ Case metninde açık bırakılan noktaları şirkete sormadım, kendim karar ver
 
 **Model:** qwen2.5:7b ile başladım. 90 soruluk ölçümde 56 doğru verdi ve uzun bağlamda döngüye giriyordu. 14B'ye geçtim; sonraki iyileştirmelerle birlikte bugün 76 doğru veriyor. Karşılığında medyan cevap süresi 21 saniyeden 32 saniyeye çıktı. Doğruluk benim için hızdan önce geldiği için 14B'de kaldım.
 
-**Ölçmeden eklemedim.** 24 belge üzerine 90 soru yazdım; her değişikliği bu setle önce ve sonra ölçtüm. Yeniden sıralayıcı ve hibrit arama, arama sonuçlarını iyileştirdi ama cevapta 1–2 soruluk kazanç getirdi. Getirdikleri karmaşıklığa değmediği için eklemedim. Denediğim ve vazgeçtiğim her şey TESTING.md'de.
+**Ölçmeden eklemedim.** 24 belge üzerine 90 soru yazdım; her değişikliği bu setle önce ve sonra ölçtüm. Reranker ve hibrit arama, arama sonuçlarını iyileştirdi ama cevapta 1–2 soruluk kazanç getirdi. Getirdikleri karmaşıklığa değmediği için eklemedim. Denediğim ve vazgeçtiğim her şey TESTING.md'de.
 
 **OCR için Tesseract.** Önce RapidOCR'ı denedim; Türkçe ı ve İ harflerini okuyamadı.
 
@@ -190,7 +190,7 @@ Testler geçici bir veri klasörü ve bellekte SQLite kullanır; Ollama çağrı
 - Taranmış sayfalar satır satır okunuyor (Tesseract `--psm 4`): fatura ve formlarda etiket ile değeri aynı satırda kalıyor, ama iki sütunlu taranmış sayfalarda iki sütunun satırları birbirine karışabilir.
 - Eğiklik düzeltme yok. Faturanın eğik kopyalarında okunan 6 satırdan 2°'de 4'ü, 5°'de 2'si, 10°'de hiçbiri kaldı. Düşük kontrast daha az etkiliyor (yazı %10 kontrastta 5/6).
 - Arama yalnızca anlamsal. Kod ve numara gibi kesin terimler için kelime araması (BM25) henüz yok.
-- Reranker (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Yeniden sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
+- Reranker (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Reranker soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
 - Kanıt panelinde parça metni gösteriliyor ve kaynak sayfa PDF görüntüleyicide açılabiliyor; sayfa görüntüsü üzerinde vurgulama yok.
 - Cevap model bitirince bir kerede geliyor (akış yok); 14B'de bu 30-120 s bekleme demek.
 

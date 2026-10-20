@@ -2,6 +2,19 @@
 
 Bu günlüğü her çalışma oturumunun sonunda tuttum. Sayıları, hataları ve commit hash'lerini o günkü haliyle bıraktım, sonradan düzeltmedim. Bazı kararlarım sonraki oturumlarda değişti. Değişikliği hangi oturumda yaptıysam orada yazdım, eski kararı da silmedim; neyi neden değiştirdiğim görünsün istedim.
 
+## Zaman
+
+| Oturum | Tarih | İş | Süre |
+|---|---|---|---|
+| 1 | 13–14.10 | Case analizi, eskizler, frontend iskeleti | ~2,5 sa |
+| 2–3 | 14–15.10 | Backend, yükleme, metin çıkarma ve OCR, parçalama, değerlendirme seti, arayüz | ~7 sa |
+| 4–7 | 17.10 | Embedding, arama, cevap ve alıntı doğrulama, pytest, model seçimi, sohbet arayüzü | ~8,5 sa |
+| 8 | 18.10 | Arama denemeleri, README, belge yönetimi, OCR, güvenlik, hız | ~7 sa |
+| 9 | 19–20.10 | Demo, hata mesajı, README kararları, Docker, belgeler | ~6,5 sa |
+| **Toplam** | | | **~32 sa** |
+
+Süreleri sohbet kayıtlarının saatlerinden çıkardım; eskiz çizmek ve videoyu kurgulamak dahil değil.
+
 ---
 
 ## 2026-10-14 · Oturum 1 (bulut): case analizi, eskizler, frontend iskeleti
@@ -31,7 +44,7 @@ Eskizden çıkan açık sorular:
 - MVP'de tek çalışma alanı.
 - Frontend: React + TypeScript (Vite).
 
-**Sonradan değişenler:** Varsayılan model 7B değil 14B oldu (Oturum 6). API seçeneğini hiç eklemedim; her şey yerel kaldı. Yeniden sıralayıcıyı denedim, eklemedim (Oturum 8). Sohbet geçmişini yapmadım; her soru bağımsız cevaplanıyor.
+**Sonradan değişenler:** Varsayılan model 7B değil 14B oldu (Oturum 6). API seçeneğini hiç eklemedim; her şey yerel kaldı. Reranker'ı denedim, eklemedim (Oturum 8). Sohbet geçmişini yapmadım; her soru bağımsız cevaplanıyor.
 
 ### Yapılanlar
 
@@ -822,12 +835,12 @@ Parçanın bölümü "tamamı büyük harfli satır" kuralıyla bulunuyordu; sad
 - Tasarım panosundaki "İnceleyici için 1" düzeni: solda belgeler, ortada soru-cevap, sağda kanıt paneli. Cevaptaki kaynak numarası kanıtta parça metnini açıp alıntıyı vurguluyor; retler nötr ("Belgelerde bu bilgi yok"), "Nasıl bulundu" ayrıntısı. Akış en yeni mesaj altta olacak şekilde hep en altta; kullanıcı yukarı çıktıysa gelen cevap onu aşağı çekmiyor.
 - Düzen ve durumlar önce sahte `/answer` ile (14B ölçümü Ollama'yı kullanıyordu), sonra gerçek modelle denendi: "garanti süresi" sorusu tuketici_6502.pdf s. 27'den doğru alıntıyla cevaplandı.
 
-### Eşik ve yeniden sıralayıcı ölçümü
+### Eşik ve reranker ölçümü
 
 - general-01 arayüzde reddedildi, 90 soruluk indekste uydurdu: fark yüklü belgelerde. KVKK'daki "Kurumun merkezi Ankara'dadır" parçası 0,481 ile eşiği (0,44) geçiyor; arayüz verisinde en yakın parça 0,42.
 - Eşiği yükseltmek çözmüyor: cevaplanabilen ve cevaplanamayan soruların ilk skorları iç içe (0,48'de doğru cevaplanan 2 soru gidiyor, fazladan elenen cevaplanamayan 0). Eşik konu dışı soruyu eliyor; ret cevap adımında. README'ye eşiğin bge-m3 için ölçüldüğü notu eklendi.
 - bge-reranker-v2-m3 (bge-m3 ilk 20'yi yeniden sıralama, CPU): kanıt 1. sırada 60 → 68/77, ilk 6'da 69 → 71/77. pasa-03, pasa-04, xai-02 arama hataları düzeliyor; kaybedilen ikisi (nist-01, scan-03) zaten yanlıştı. Eşik olarak işe yaramıyor (general-01 0,446, cevaplanamayan üç soru 0,9 üstü, günlük dil soruları 0,01 civarı). Süre medyan 16,8 s; 10 adaya inmek kazanımın 2/3'ünü götürüyor. Ayrıntı TESTING Vaka 57.
-- Karar bekliyor: yeniden sıralayıcıyla 90 soruyu 14B ile çalıştırmak (~100 dk); uydurma için NLI.
+- Karar bekliyor: reranker'la 90 soruyu 14B ile çalıştırmak (~100 dk); uydurma için NLI.
 
 ### Commit'ler
 
@@ -844,8 +857,8 @@ Bu oturum en uzunuydu ve çoğu "denedim, eklemedim" ile bitti. Arama için iki 
 ### Arama: parça düzeyinde ölçüm ve denenenler
 
 - "Üretim hatası" sayılan 7 sorunun 4'ünde modele kanıt sayfasının başka bir parçası gitmişti; sayfa düzeyindeki ölçüm bunları başarılı sayıyordu. `eval/retrieval.py` artık parça sırasını da ölçüyor (kanıt cümlesi parçada geçmeli): Hit@1 sayfa 62 / parça 55, Hit@6 parça 67/79. TESTING Vaka 58.
-- Denenenler (kanıt parçası ilk 6'da, 79 soru): başlık ekli embedding 70, yeniden sıralayıcı (bge-reranker-v2-m3) 71, başlık + sıralayıcı 72, başlık + FTS5 BM25 kök + RRF 71. Vaka 59-60.
-- Hibrit arama uygulanıp 90 soru 14B ile ölçüldü: 72 → 73 (4 düzelen, 3 bozulan). Sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ~170 satır ek kod getirdiği için ikisi de eklenmedi; kod geri alındı, README'de "denendi". TESTING Vaka 65.
+- Denenenler (kanıt parçası ilk 6'da, 79 soru): başlık ekli embedding 70, reranker (bge-reranker-v2-m3) 71, başlık + reranker 72, başlık + FTS5 BM25 kök + RRF 71. Vaka 59-60.
+- Hibrit arama uygulanıp 90 soru 14B ile ölçüldü: 72 → 73 (4 düzelen, 3 bozulan). Reranker soru başına ~18 s ve 2,3 GB model, hibrit arama ~170 satır ek kod getirdiği için ikisi de eklenmedi; kod geri alındı, README'de "denendi". TESTING Vaka 65.
 
 ### README
 
@@ -944,3 +957,9 @@ Bu oturumda yeni özellik eklemedim; projeyi başkasının açıp kullanabilece�
 ### Sıradaki
 
 Teslim: belgelerin son okuması, push ve demo videosunun gönderilmesi.
+
+---
+
+## Baştan başlasam
+
+Hangi araçların ve yöntemlerin işe yaradığını proje ilerledikçe, deneye deneye buldum. Bugünkü bilgimle başlasam önce uçtan uca basit bir hat kurardım: yükle, ara, cevapla. 2. oturumun neredeyse tamamı metin çıkarmanın ayrıntılarına gitti, ilk cevabı ancak 17.10'da aldım. En büyük kazançlar ise uçtan uca ölçüm başladıktan sonra geldi: 14B modelle 56'dan 76'ya çıkış, taranmış sayfaları satır satır okumak, komşu parçaları eklemek. Ölçüm setini de en başta ve çeşitli belgelerle kurardım; ilk kararları 4–5 belgeyle verdim, pdfplumber'ın metin katmanından sonradan vazgeçtim (Oturum 2). Docker'ı en sona bırakmazdım; bellek ve model indirme sorunları teslimden hemen önce çıktı. Böylece kazandığım zamanı kalan 6 arama hatasına ve cevap metninin doğrulanmasına ayırır, daha iyi çalışan bir demo çıkarırdım. Reranker ve hibrit arama denemelerini ise yine yapardım; eklemedim ama neyin işe yaramadığını ölçerek gördüm.

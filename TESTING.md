@@ -730,11 +730,11 @@ Testler `eval/.index` üzerinde (`testdata/`'dan ayrı indeks); gerçek `data/` 
 - **Sayı kontrolü:** 7B'nin kanun-02 ("üçyedi") ve kanun-05 (276) hatalarını yakalıyor. "Haksız" 7 retin 4'ü aslında gerçek destek eksiği: pasa-02 cevapta 33.551, alıntıda 33.511 (değerlendirme kaçırmış); sinan-05 "17 yıl" alıntıda yok (iki model); fatura-02 tarih alıntıda yok. Kalan 3'ü ayrıştırıcı hatası (ay adı + gün "February 26" ad parçası sanıldı, vb.), düzeltilebilir. general-01'i yakalamıyor (cevapta sayı yok).
 - **Kelime kapsamı:** kullanılamaz; diller arası ve başka sözcüklerle yazılmış doğru cevapları topluca reddediyor.
 - **Benzerlik:** general-01 0,429; ama doğru kısa cevaplar da düşük: "1511" 0,462, "ondört gün" 0,489. 0,45 eşiği 3 yanlışı (general-01, kısa "24 hafta" ve "1937") haksız retsiz yakalıyor, ama ayırdığı şey destek değil cevap uzunluğu; ara 0,03. Güvenilir değil.
-- **Sonuç:** general-01 türü için kelime ya da benzerlik yetmiyor; anlam düzeyinde kontrol (NLI) ya da aramada yeniden sıralayıcı gerekiyor. Sayı kontrolü ayrı bir değer taşıyor: sayısal uydurmaları ve desteklenmeyen sayıları işaretliyor.
+- **Sonuç:** general-01 türü için kelime ya da benzerlik yetmiyor; anlam düzeyinde kontrol (NLI) ya da aramada reranker gerekiyor. Sayı kontrolü ayrı bir değer taşıyor: sayısal uydurmaları ve desteklenmeyen sayıları işaretliyor.
 
-### Vaka 57: Eşik ve yeniden sıralayıcı (bge-reranker-v2-m3) ölçümü (kod değişikliği yok)
+### Vaka 57: Eşik ve reranker (bge-reranker-v2-m3) ölçümü (kod değişikliği yok)
 
-- **Neden:** general-01 arayüzde (KVKK yüklü değil, en yakın parça 0,42) `no_sources` ile reddedildi, 90 soruluk indekste (KVKK "Kurumun merkezi Ankara'dadır" 0,481) modele gitti ve uydurdu. Soru: eşik yükseltilmeli mi, yeniden sıralayıcı yardım eder mi?
+- **Neden:** general-01 arayüzde (KVKK yüklü değil, en yakın parça 0,42) `no_sources` ile reddedildi, 90 soruluk indekste (KVKK "Kurumun merkezi Ankara'dadır" 0,481) modele gitti ve uydurdu. Soru: eşik yükseltilmeli mi, reranker yardım eder mi?
 - **Eşik (bge-m3 ilk skor, 14B kayıtları):**
 
 | Eşik | Cevaplanabilen elenen (/77) | Bunlardan 14B'nin doğru cevapladığı | Cevaplanamayan elenen (/13) |
@@ -746,18 +746,18 @@ Testler `eval/.index` üzerinde (`testdata/`'dan ayrı indeks); gerçek `data/` 
 | 0,60 | 19 | 11 | 8 |
 
   Cevaplanabilenlerin en düşük ilk skorları 0,435 / 0,441 / 0,477; cevaplanamayanlarınki 0,41–0,68 (9'u 0,48 üstünde). general-01'i (0,481) elemek doğru cevaplanan 2 soruyu da eler. Eşik 0,44'te kaldı; README'ye "bge-m3 için ölçüldü, başka modelde yeniden ölçülmeli" notu eklendi.
-- **Yeniden sıralayıcı:** `eval/.index` üzerinde her soru için bge-m3 ilk 20 → bge-reranker-v2-m3 (CPU, sigmoid skor). Uygulama ve `pyproject.toml` değişmedi; paketler `uv run --with` ile.
+- **Reranker:** `eval/.index` üzerinde her soru için bge-m3 ilk 20 → bge-reranker-v2-m3 (CPU, sigmoid skor). Uygulama ve `pyproject.toml` değişmedi; paketler `uv run --with` ile.
 
 | | Kanıt sayfası 1. | İlk 3 | İlk 6 |
 |---|---|---|---|
 | bge-m3 | 60/77 | 65/77 | 69/77 |
-| bge-m3 ilk 20 + yeniden sıralayıcı | 68/77 | 70/77 | 71/77 |
+| bge-m3 ilk 20 + reranker | 68/77 | 70/77 | 71/77 |
 
   - İlk 6'ya giren: pasa-03 (11 → 1), pasa-04 (8 → 1), xai-02 (12 → 1); üçü de 14B'de yanlış (kanıt bağlamda değildi). kvkk-03 10 → 4 (zaten doğru).
   - İlk 6'dan çıkan: nist-01 (4 → 19), scan-03 (1 → 8); ikisi de 14B'de zaten yanlış.
   - Eşik olarak kullanılamıyor: general-01 0,446; cevaplanamayan kvkk-08 0,906, erasmus-02 0,957, general-04 0,983; doğru cevaplanan günlük dil soruları çok düşük (informal-03 0,008, informal-04 0,079). general-01'i elemek için 0,5 gerekir, 14B'nin doğru cevapladığı 7 soru gider.
   - Süre (20 parça, CPU): medyan 16,8 s, en uzun 38 s. 10 adaya inmek kazanılan 3 sorudan 2'sini kaybettirir (bge-m3'te 11. ve 12.).
-- **Sonuç:** yeniden sıralayıcı sıralamayı iyileştiriyor (3 arama hatası), uydurmayı yakalamıyor; "konu ilgili mi" sorusunu ölçüyor, "cevabı destekliyor mu" sorusunu değil. Cevaba etkisi 90 soru 14B ile yeniden çalıştırılınca görülecek.
+- **Sonuç:** reranker sıralamayı iyileştiriyor (3 arama hatası), uydurmayı yakalamıyor; "konu ilgili mi" sorusunu ölçüyor, "cevabı destekliyor mu" sorusunu değil. Cevaba etkisi 90 soru 14B ile yeniden çalıştırılınca görülecek.
 
 ### Vaka 58: Arama ölçümü parça düzeyinde (`eval/retrieval.py`)
 
@@ -774,23 +774,23 @@ Testler `eval/.index` üzerinde (`testdata/`'dan ayrı indeks); gerçek `data/` 
   - Sırası düşenler: kanun-01, kvkk-06, jet-01, sinan-03 (1 → 2), sinan-04 (1 → 5), informal-03 (2 → 6), pasa-04 (8 → 9).
 - 14B hatalarının yeni dağılımı: arama 9 (5 + parça düzeyinde 4), OCR 4, üretim 3 (ikisi aynı belirsiz cümle, biri değerlendirme katılığı), uydurma 1.
 
-### Vaka 59: Başlık ekleme ve yeniden sıralayıcı, parça düzeyinde (kod değişikliği yok)
+### Vaka 59: Başlık ekleme ve reranker, parça düzeyinde (kod değişikliği yok)
 
-- **Düzen:** `eval/.index` salt okunur; her soru için ilk 20 aday, kanıt cümlesi parçada geçmeli (Vaka 58). "Başlık ekli": embedding'e giren metin `belge adı | bölüm başlığı` + parça metni (bellekte yeniden embedding; belge adı olarak dosya adı). Yeniden sıralayıcı: bge-reranker-v2-m3, CPU, `uv run --with`.
+- **Düzen:** `eval/.index` salt okunur; her soru için ilk 20 aday, kanıt cümlesi parçada geçmeli (Vaka 58). "Başlık ekli": embedding'e giren metin `belge adı | bölüm başlığı` + parça metni (bellekte yeniden embedding; belge adı olarak dosya adı). Reranker: bge-reranker-v2-m3, CPU, `uv run --with`.
 
 | Düzen | Hit@1 | Hit@3 | Hit@6 | İlk 20 dışı |
 |---|---|---|---|---|
 | Mevcut | 55/79 | 62/79 | 67/79 | 4 |
 | Başlık ekli | 57/79 | 66/79 | 70/79 | 2 |
-| Yeniden sıralayıcı | 65/79 | 70/79 | 71/79 | 4 |
-| Başlık ekli + yeniden sıralayıcı | 65/79 | 71/79 | 72/79 | 2 |
+| Reranker | 65/79 | 70/79 | 71/79 | 4 |
+| Başlık ekli + reranker | 65/79 | 71/79 | 72/79 | 2 |
 
-- **Sayfası gelip parçası gelmeyen 4 soru (sıra: mevcut / başlık / sıralayıcı / ikisi):** kanun-02 12 / 11 / 2 / 2; informal-01 yok / 4 / yok / 2; kvkk-01 11 / 1 / 9 / 8; nist-01 hiçbirinde ilk 20'de yok (açık soru).
-- **Başlık ekli tek başına geriletiyor:** acme-02 5 → 7, sinan-04 5 → 9, informal-03 6 → 7 (üçü de 14B'de doğru). Sıralayıcı eklenince 1 / 1 / 2.
-- **Sıralayıcı geriletiyor:** scan-03 1 → 9 (bozuk OCR metni; 14B'de zaten yanlış).
-- **Diğer kazançlar (sıralayıcı):** pasa-03 11 → 1, pasa-04 9 → 1, xai-02 12 → 1, kvkk-03 10 → 4.
-- **Maliyet:** sıralayıcı soru başına ~18 s (CPU, 20 aday), torch bağımlılığı ve 2,3 GB model.
-- **Sonuç:** arama en çok "başlık ekli + sıralayıcı" ile iyileşiyor (Hit@6 67 → 72). Cevaba etkisi 90 soru 14B ile çalıştırılınca görülecek.
+- **Sayfası gelip parçası gelmeyen 4 soru (sıra: mevcut / başlık / reranker / ikisi):** kanun-02 12 / 11 / 2 / 2; informal-01 yok / 4 / yok / 2; kvkk-01 11 / 1 / 9 / 8; nist-01 hiçbirinde ilk 20'de yok (açık soru).
+- **Başlık ekli tek başına geriletiyor:** acme-02 5 → 7, sinan-04 5 → 9, informal-03 6 → 7 (üçü de 14B'de doğru). Reranker eklenince 1 / 1 / 2.
+- **Reranker geriletiyor:** scan-03 1 → 9 (bozuk OCR metni; 14B'de zaten yanlış).
+- **Diğer kazançlar (reranker):** pasa-03 11 → 1, pasa-04 9 → 1, xai-02 12 → 1, kvkk-03 10 → 4.
+- **Maliyet:** reranker soru başına ~18 s (CPU, 20 aday), torch bağımlılığı ve 2,3 GB model.
+- **Sonuç:** arama en çok "başlık ekli + reranker" ile iyileşiyor (Hit@6 67 → 72). Cevaba etkisi 90 soru 14B ile çalıştırılınca görülecek.
 
 ### Vaka 60: Hibrit arama (FTS5 BM25 + bge-m3, RRF), parça düzeyinde (kod değişikliği yok)
 
@@ -806,13 +806,13 @@ Testler `eval/.index` üzerinde (`testdata/`'dan ayrı indeks); gerçek `data/` 
 | Başlık + BM25 kök | 50 | 67 | 70 | 3 | 5 / 16 / 3 / 2 |
 | **Başlık + BM25 kök (BM25 ağırlığı 0,5)** | 50 | 67 | **71** | 4 | **6 / yok / 2 / 2** |
 | Başlık + BM25 kök (0,3) | 50 | 64 | 70 | 3 | 7 / yok / 2 / 2 |
-| Başlık + yeniden sıralayıcı (Vaka 59) | 65 | 71 | 72 | 2 | 2 / yok / 8 / 2 |
+| Başlık + reranker (Vaka 59) | 65 | 71 | 72 | 2 | 2 / yok / 8 / 2 |
 
 - **BM25 tek başına zayıf:** diller arası soruları hiç bulmuyor, Türkçe ekler eşleşmeyi bozuyor (kök kesme kısmen düzeltiyor). Tek başına 14B'nin doğru cevapladığı 9–13 soruyu ilk 6'dan çıkarıyor.
 - **Başlık + BM25 kök (0,5):** ilk 6'ya giren kanun-02, nist-02, pasa-03, kvkk-01, kvkk-03, xai-02, informal-01; çıkan kvkk-06 (2 → 9) ve jet-03 (1 → ilk 20 dışı), ikisi de 14B'de doğru; scan-03 (1 → 12) zaten yanlış. RRF, yalnızca bir listede çıkan parçayı (jet-03'te anlamsal 1., BM25'te yok) iki listede orta sırada çıkanların arkasına atıyor.
 - nist-01 BM25 tam kelimede 7., birleşimlerde ilk 6 dışında (açık soru).
 - **Maliyet:** yeni bağımlılık yok (SQLite FTS5), sorgu milisaniye.
-- **Sonuç:** "başlık + BM25 kök (0,5)" yeniden sıralayıcıya yakın (Hit@6 71 / 72) ve hedef 4 sorudan 3'ünü ilk 6'ya getiriyor (sıralayıcı 2). Uygulamaya alınıp 90 soru 14B ile ölçülecek.
+- **Sonuç:** "başlık + BM25 kök (0,5)" reranker'a yakın (Hit@6 71 / 72) ve hedef 4 sorudan 3'ünü ilk 6'ya getiriyor (reranker 2). Uygulamaya alınıp 90 soru 14B ile ölçülecek.
 
 ### Vaka 61: Belge listesi: toplu işaretleme, ⋯ menüsü (görüntüle / yeniden işle / sil), sayfayı aç
 
