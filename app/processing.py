@@ -17,11 +17,13 @@ _lock = threading.Lock()
 
 def embed_document(session: Session, document_id: int) -> None:
     """Belgenin parçalarını vektöre çevirip kaydeder (commit etmez)."""
-    session.exec(delete(Embedding).where(Embedding.document_id == document_id))
     chunks = session.exec(select(Chunk).where(Chunk.document_id == document_id).order_by(Chunk.position)).all()
-    if not chunks:
-        return
-    vectors = embed([c.text for c in chunks])
+    vectors = embed([c.text for c in chunks]) if chunks else []
+    session.exec(delete(Embedding).where(Embedding.document_id == document_id))
+    add_embeddings(session, document_id, chunks, vectors)
+
+
+def add_embeddings(session: Session, document_id: int, chunks: list[Chunk], vectors) -> None:
     session.add_all(
         Embedding(chunk_id=c.id, document_id=document_id, model=EMBED_MODEL, vector=v.tobytes())
         for c, v in zip(chunks, vectors)
@@ -42,25 +44,28 @@ def process_document(document_id: int) -> None:
                 pages = extract_pdf_text(document.path)
             else:
                 pages = [(extract_image_text(document.path), "ocr")]
-            # Yarıda kalmış önceki denemenin kayıtları silinir.
-            session.exec(delete(Embedding).where(Embedding.document_id == document_id))
-            session.exec(delete(Page).where(Page.document_id == document_id))
-            session.exec(delete(Chunk).where(Chunk.document_id == document_id))
-            session.add_all(Page(document_id=document_id, number=i + 1, text=t) for i, (t, _) in enumerate(pages))
             chunks, section = [], None
             for number, (page_text, source) in enumerate(pages, start=1):
                 # Başlık sonraki sayfaya devreder.
                 page_chunks, section = chunk_page(page_text, section)
                 chunks += [(number, source, *c) for c in page_chunks]
-            session.add_all(
+            # Vektörler yazmadan önce hesaplanır; yazma işlemi açıkken yavaş embedding yeni yüklemeleri kilitliyordu.
+            vectors = embed([text for _, _, _, text, _ in chunks]) if chunks else []
+            # Yarıda kalmış önceki denemenin kayıtları silinir.
+            session.exec(delete(Embedding).where(Embedding.document_id == document_id))
+            session.exec(delete(Page).where(Page.document_id == document_id))
+            session.exec(delete(Chunk).where(Chunk.document_id == document_id))
+            session.add_all(Page(document_id=document_id, number=i + 1, text=t) for i, (t, _) in enumerate(pages))
+            rows = [
                 Chunk(
                     document_id=document_id, page=number, position=i,
                     text=text, kind=kind, source=source, section=section,
                 )
                 for i, (number, source, kind, text, section) in enumerate(chunks)
-            )
+            ]
+            session.add_all(rows)
             session.flush()
-            embed_document(session, document_id)
+            add_embeddings(session, document_id, rows, vectors)
             document.status = "ready"
             session.add(document)
             session.commit()

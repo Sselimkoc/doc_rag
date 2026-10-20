@@ -2,7 +2,7 @@ import urllib.error
 
 import numpy as np
 import pytest
-from sqlalchemy import inspect, text
+from sqlalchemy import create_engine, inspect, text
 from sqlmodel import Session, SQLModel, select
 
 from app import db, embedding, processing
@@ -71,6 +71,21 @@ def test_failure_marks_failed_and_keeps_previous_chunks(fresh_db, fake_models, m
     monkeypatch.setattr(processing, "embed", ollama_down)
     processing.process_document(doc)
     assert counts(fresh_db, doc) == ("failed", *before[1:])
+
+
+def test_upload_is_not_blocked_while_vectors_are_computed(fresh_db, fake_models, monkeypatch):
+    # Vaka 70: embedding sürerken açık kalan yazma işlemi yeni yüklemeyi "database is locked" ile düşürüyordu.
+    doc = add_document(fresh_db)
+    processing.process_document(doc)
+    upload_engine = create_engine(f"sqlite:///{db.DB_PATH}", connect_args={"timeout": 0.1})
+
+    def embed_while_uploading(texts):
+        add_document(upload_engine)
+        return np.ones((len(texts), 4), dtype=np.float32) / 2
+
+    monkeypatch.setattr(processing, "embed", embed_while_uploading)
+    processing.process_document(doc)
+    assert counts(fresh_db, doc)[0] == "ready"
 
 
 def test_pending_documents_are_processed_and_missing_vectors_filled(fresh_db, fake_models):

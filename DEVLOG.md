@@ -944,6 +944,8 @@ Bu oturumda yeni özellik eklemedim; projeyi başkasının açıp kullanabilece�
 
 - README'ye "Varsayımlar ve kararlar" (DEVLOG'un baştan beri atıf yaptığı bölüm) ve "Daha fazla zamanım olsaydı" eklendi.
 - Docker: backend (Python + Tesseract `tur+eng`), arayüz (nginx; API istekleri backend'e yönlendiriliyor) ve Ollama tek compose dosyasında. Modeller ilk açılışta ayrı bir servisle indiriliyor, backend indirme bitince başlıyor. Yerel `data/` ve `.env` imaja girmiyor. TESTING Vaka 70.
+- Konteynerdeki Ollama ile boş kurulumdan tam deneme: imaj 9,4 GB, modeller ~20 dakikada indi, cevaplar bilgisayardakiyle aynı ama ekran kartı olmadığı için 1–2 dakika sürüyor.
+- Bu denemede bir hata çıktı: üç belge art arda yüklenince üçüncüsü "database is locked" ile düştü. Belge işlenirken eski kayıtları silen yazma işlemi embedding bitene kadar açık kalıyordu; CPU'da embedding yavaş olduğu için yeni yükleme 5 saniyeden fazla bekleyip düşüyordu. pdfium için eklediğim kilit yalnızca işlemeleri sıraya koyuyor, yüklemeyi kapsamıyor. Vektörleri yazma işleminden önce hesaplayacak şekilde sıralamayı değiştirdim; yazma artık kısa sürüyor. pytest: işleme sürerken başka belge yüklenebiliyor (eski kodda düşüyordu). TESTING Vaka 70.
 
 ### Notlar / bilinen eksikler
 
