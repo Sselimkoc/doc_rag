@@ -101,20 +101,18 @@ Python, Node ve Tesseract kurmadan backend, arayüz ve Ollama birlikte çalış�
 docker compose up -d --build
 ```
 
-İlk açılışta modeller Ollama konteynerine indirilir:
+İlk açılışta Ollama imajı (~9 GB) ve modeller (~11 GB) indirilir; backend indirme bitince başlar. İlerlemeyi görmek için:
 
 ```bash
-docker compose exec ollama ollama pull bge-m3
+docker compose logs -f models
 ```
 
-```bash
-docker compose exec ollama ollama pull qwen2.5:14b-instruct-q4_K_M
-```
+Belgeler ve veritabanı `data` volume'unda, modeller `ollama` volume'unda tutulur. Konteynerdeki Ollama ekran kartını kullanmaz; bir cevap 1–2 dakika sürebilir (bilgisayardaki Ollama ile ~30 s). 14B model için Docker'a en az 12 GB bellek verin (Docker Desktop > Settings > Resources; Windows'ta WSL 2 ile `%UserProfile%\.wslconfig` içinde `memory`, varsayılanı belleğin yarısı); daha az bellekte `.env` dosyasında `LLM_MODEL=qwen2.5:7b-instruct` seçin.
 
-Belgeler ve veritabanı `data` volume'unda, modeller `ollama` volume'unda tutulur. Konteynerdeki Ollama ekran kartını kullanmaz. Bilgisayarda kurulu Ollama'yı (ve indirilmiş modellerini) kullanmak için:
+Bilgisayarda kurulu Ollama'yı (ve indirilmiş modellerini) kullanmak için:
 
 ```bash
-DOCKER_OLLAMA_URL=http://host.docker.internal:11434 docker compose up -d --build backend frontend
+DOCKER_OLLAMA_URL=http://host.docker.internal:11434 docker compose up -d --build --no-deps backend frontend
 ```
 
 ### API

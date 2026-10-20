@@ -4,8 +4,21 @@ services:
     volumes:
       - ollama:/root/.ollama
 
+  # Modelleri ilk açılışta indirir; volume'da varsa hızlıca biter.
+  models:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:14b-instruct-q4_K_M}
+    entrypoint: ["sh", "-c", "until ollama list >/dev/null 2>&1; do sleep 1; done; ollama pull bge-m3 && ollama pull $$LLM_MODEL"]
+
   backend:
     build: .
+    depends_on:
+      models:
+        condition: service_completed_successfully
     environment:
       # Bilgisayardaki Ollama için: DOCKER_OLLAMA_URL=http://host.docker.internal:11434
       OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://ollama:11434}
