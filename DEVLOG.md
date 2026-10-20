@@ -955,10 +955,15 @@ Bu oturumda yeni özellik eklemedim; projeyi başkasının açıp kullanabilece�
 
 - `9aa6710` Show a separate error for files whose content does not match their extension
 - `1dc2262` Add Docker setup and assumptions section to README
+- `282961f` Add development log, test cases, research notes and sketches
+- `40f6e12` Add time breakdown and retrospective to development log
+- `a908d47` Add example questions and answers to testing notes
+- `527c497` Pull models automatically on first Docker start
+- `5b584f4` Compute embeddings before opening the write transaction
 
 ### Sıradaki
 
-Teslim: belgelerin son okuması, push ve demo videosunun gönderilmesi.
+Teslim: demo videosunun ve repo bağlantısının gönderilmesi.
 
 ---
 
