@@ -39,7 +39,7 @@ Dosyalar 2026-10-15'te indirildi; bu commit'lerdeki halleriyle aynı oldukları 
 
 ## Repoda olmayan belgeler
 
-- Kişisel belgeler (ör. transkript) değerlendirmede kullanılmaz; ölçümlerde sadece sayılar raporlanır.
+- Kişisel belgeler değerlendirmede kullanılmaz; ölçümlerde sadece sayılar raporlanır.
 
 ## SHA-256
 
