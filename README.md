@@ -36,6 +36,24 @@ Soru ─► bge-m3 ─► kosinüs araması (ilk 6) ─► skor eşiği ─► k
   - Belgeler: çoklu yükleme ve sürükle-bırak, adla filtre, aranacak belgeleri işaretleme (tümünü işaretle / kaldır), işleme durumu ve OCR'lı sayfa sayısı. Her belgenin ⋯ menüsünde görüntüle (orijinal dosya ve çıkarılan metin), yeniden işle, sil.
   - Kanıt paneli: cevaptaki kaynak numarasına tıklanınca parça metni açılır ve alıntı vurgulanır; "Sayfayı aç" PDF'i alıntının sayfasında açar.
 
+## Varsayımlar ve kararlar
+
+Case metninde açık bırakılan noktaları şirkete sormadım, kendim karar verdim. Kararları ve bedellerini burada topladım.
+
+**Her şey yerel çalışıyor.** Bu tür bir sistemin karşılaşacağı belgeler çoğu zaman kuruma özel ya da gizli olur. Bu yüzden belgelerin, soruların ve cevapların bilgisayardan çıkmamasını en baştan şart koydum. Bedeli hız oldu: 4 GB ekran kartlı bir dizüstünde bir cevap yaklaşık 30 saniye sürüyor.
+
+**Yanlış cevap yerine cevapsız kalmayı seçtim.** Belge üzerinde soru-cevapta en tehlikeli hata, kendinden emin görünen ama belgede olmayan bir cevap. Bu yüzden modelin her cevabı belgeden birebir bir alıntıya bağlaması gerekiyor ve alıntıyı kodda kontrol ediyorum. Bunun bir bedeli var: model doğru cevabı bulup alıntıyı bir harf farkla yazdığında cevap da reddediliyor. Bunu bilerek kabul ettim.
+
+**Model:** qwen2.5:7b ile başladım. 90 soruluk ölçümde 56 doğru verdi ve uzun bağlamda döngüye giriyordu. 14B'ye geçtim; sonraki iyileştirmelerle birlikte bugün 76 doğru veriyor. Karşılığında medyan cevap süresi 21 saniyeden 32 saniyeye çıktı. Doğruluk benim için hızdan önce geldiği için 14B'de kaldım.
+
+**Ölçmeden eklemedim.** 24 belge üzerine 90 soru yazdım; her değişikliği bu setle önce ve sonra ölçtüm. Yeniden sıralayıcı ve hibrit arama, arama sonuçlarını iyileştirdi ama cevapta 1–2 soruluk kazanç getirdi. Getirdikleri karmaşıklığa değmediği için eklemedim. Denediğim ve vazgeçtiğim her şey TESTING.md'de.
+
+**OCR için Tesseract.** Önce RapidOCR'ı denedim; Türkçe ı ve İ harflerini okuyamadı.
+
+**Vektör veritabanı yok.** Bu ölçekte tek bir numpy matrisi hem yeterli hem daha hızlı; SQLite'ın yanında ayrı bir servis kurmaya gerek görmedim.
+
+**Kapsam dışı bıraktıklarım:** kullanıcı yönetimi, birden çok çalışma alanı ve sohbet geçmişi. Sohbet geçmişini zaman kalırsa yapmayı planlamıştım; zamanı doğruluk ölçümlerine ayırdım. Her soru bağımsız cevaplanıyor; önceki soruya atıf yapan bir takip sorusu ("peki ya ikincisi?") şu an anlaşılmıyor.
+
 ## Kurulum
 
 Gereksinimler:
@@ -74,6 +92,30 @@ cd frontend && npm install && npm run dev
 ```
 
 Yüklenen belgeler ve veritabanı `data/` klasöründe tutulur. Açılışta yarıda kalmış ya da işlenmemiş belgeler arka planda yeniden işlenir.
+
+### Docker ile
+
+Python, Node ve Tesseract kurmadan backend, arayüz ve Ollama birlikte çalışır (http://localhost:8080):
+
+```bash
+docker compose up -d --build
+```
+
+İlk açılışta modeller Ollama konteynerine indirilir:
+
+```bash
+docker compose exec ollama ollama pull bge-m3
+```
+
+```bash
+docker compose exec ollama ollama pull qwen2.5:14b-instruct-q4_K_M
+```
+
+Belgeler ve veritabanı `data` volume'unda, modeller `ollama` volume'unda tutulur. Konteynerdeki Ollama ekran kartını kullanmaz. Bilgisayarda kurulu Ollama'yı (ve indirilmiş modellerini) kullanmak için:
+
+```bash
+DOCKER_OLLAMA_URL=http://host.docker.internal:11434 docker compose up -d --build backend frontend
+```
 
 ### API
 
@@ -148,7 +190,7 @@ Testler geçici bir veri klasörü ve bellekte SQLite kullanır; Ollama çağrı
 - Taranmış sayfalar satır satır okunuyor (Tesseract `--psm 4`): fatura ve formlarda etiket ile değeri aynı satırda kalıyor, ama iki sütunlu taranmış sayfalarda iki sütunun satırları birbirine karışabilir.
 - Eğiklik düzeltme yok. Faturanın eğik kopyalarında okunan 6 satırdan 2°'de 4'ü, 5°'de 2'si, 10°'de hiçbiri kaldı. Düşük kontrast daha az etkiliyor (yazı %10 kontrastta 5/6).
 - Arama yalnızca anlamsal. Kod ve numara gibi kesin terimler için kelime araması (BM25) henüz yok.
-- Yeniden sıralayıcı (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Yeniden sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
+- Reranker (bge-reranker-v2-m3) ve hibrit arama (FTS5 + RRF, embedding'e başlık ekleme) denendi: cevabı içeren parça ilk 6'da 67/79'dan 71–72/79'a çıktı, ama cevapta kazanç 1–2 soruda kaldı. Yeniden sıralayıcı soru başına ~18 s ve 2,3 GB model, hibrit arama ek karmaşıklık getirdiği için eklenmedi.
 - Kanıt panelinde parça metni gösteriliyor ve kaynak sayfa PDF görüntüleyicide açılabiliyor; sayfa görüntüsü üzerinde vurgulama yok.
 - Cevap model bitirince bir kerede geliyor (akış yok); 14B'de bu 30-120 s bekleme demek.
 
@@ -160,3 +202,7 @@ frontend/   arayüz
 eval/       değerlendirme betikleri, sorular, test belgesi kaynakları
 tests/      pytest
 ```
+
+## Daha fazla zamanım olsaydı
+
+Önce kalan hataların en büyük grubuna, aramaya  bakardım. Ardından cevap metninin kendisini doğrulardım: şu an yalnızca alıntıları kontrol ediyorum, model doğru cümleyi alıntılayıp cevapta farklı bir şey yazabiliyor. Taranmış tablolar için bir tablo yapısı modeli de listemde.
